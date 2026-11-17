@@ -4,420 +4,589 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
 <meta name="description" content="CampusSpend — smart college expense tracker.">
-<meta name="theme-color" content="#5b5ce2">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CampusSpend">
+<meta name="theme-color" content="#fbbf24">
 <title>CampusSpend — College Expense Tracker</title>
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%234f46e5'/%3E%3Cpath d='M50 25 L80 40 L50 55 L20 40 Z' fill='white'/%3E%3Ctext x='50' y='88' font-family='Arial' font-size='40' font-weight='bold' fill='%23fbbf24' text-anchor='middle'%3E%E2%82%B9%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
-<link rel="icon" type="image/x-icon" href="./favicon.ico">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-<!-- ============ LANDING PAGE ============ -->
-<div id="landingView">
-  <header>
-    <div class="container nav">
-      <a class="logo" href="#"><span class="logo-mark">₹</span><span>CampusSpend</span></a>
-      <div class="nav-links">
-        <a href="#features">Features</a>
-        <a href="#smart">Smart Import</a>
-        <a href="#how">How it works</a>
-      </div>
-      <div class="nav-actions">
-        <a class="btn btn-secondary" href="#features">Explore</a>
-        <button class="btn btn-primary" data-open-app>Open Tracker →</button>
-      </div>
-    </div>
-  </header>
-
-  <main>
-    <section class="hero">
-      <div class="container hero-grid">
-        <div>
-          <div class="pill"><span></span>Built for college life</div>
-          <h1>Know where your <span class="gradient">money goes.</span></h1>
-          <p>A smart college expense tracker to record daily spending, set budgets, import transaction data, manage recurring expenses, and understand your money through visual analytics.</p>
-          <div class="hero-actions">
-            <button class="btn btn-primary" data-open-app>Start Tracking →</button>
-            <a class="btn btn-secondary" href="#features">See Features</a>
-          </div>
-          <div class="hero-note">Ready to use · Data stays in your browser · No account required for this demo</div>
-        </div>
-        <div class="hero-visual">
-          <div class="hero-glow"></div>
-          <div class="mock">
-            <div class="mock-top">
-              <div class="mock-brand"><span class="mock-icon"></span>CampusSpend Dashboard</div>
-              <span class="online"></span>
-            </div>
-            <div class="mock-body">
-              <div class="mock-stats">
-                <div class="mstat"><small>Total Spent</small><b>₹12,840</b><em>↓ 8.2%</em></div>
-                <div class="mstat"><small>Monthly Budget</small><b>₹15,000</b><em>₹2,160 left</em></div>
-                <div class="mstat"><small>Top Category</small><b>Food</b><em>34% of total</em></div>
-              </div>
-              <div class="mock-panels">
-                <div class="mock-panel">
-                  <h4>Monthly spending</h4>
-                  <div class="mock-sub">Last 7 months</div>
-                  <div class="mock-bars">
-                    <i class="mock-bar"></i><i class="mock-bar"></i><i class="mock-bar"></i>
-                    <i class="mock-bar"></i><i class="mock-bar"></i><i class="mock-bar"></i><i class="mock-bar"></i>
-                  </div>
-                </div>
-                <div class="mock-panel">
-                  <h4>Categories</h4>
-                  <div class="mock-donut"><b>₹12.8k</b></div>
-                  <div class="legend">
-                    <div><span><i style="background:#5b5ce2"></i>Food</span><b>34%</b></div>
-                    <div><span><i style="background:#12a594"></i>Travel</span><b>22%</b></div>
-                    <div><span><i style="background:#f4b85a"></i>Books</span><b>15%</b></div>
-                  </div>
-                </div>
-              </div>
-              <div class="mock-list">
-                <div class="mock-row"><span>Recent expenses</span><span>Category</span><span>Amount</span></div>
-                <div class="mock-row">
-                  <span><b>Canteen lunch</b><small>Today · UPI</small></span>
-                  <span class="mock-badge">Food</span><span class="mock-amt">₹80</span>
-                </div>
-                <div class="mock-row">
-                  <span><b>Metro recharge</b><small>Yesterday · Card</small></span>
-                  <span class="mock-badge">Travel</span><span class="mock-amt">₹300</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="floating">
-            <div class="floating-icon">✓</div>
-            <div><b>Budget healthy</b><span>You have room for the month</span></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <div class="trust">
-      <div class="container trust-row">
-        <span>COLLEGE PROJECT READY</span>
-        <span class="chip">HTML • CSS • JS</span>
-        <span class="chip">LocalStorage</span>
-        <span class="chip">CSV Import</span>
-        <span class="chip">Recurring Expenses</span>
-      </div>
-    </div>
-
-    <section class="landing-section" id="features">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Everything in one place</div>
-          <h2>Your college money, finally <span class="gradient">under control.</span></h2>
-          <p>Track the things students actually spend on — food, transport, books, hostel, subscriptions, and everyday payments.</p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature"><div class="fi">₹</div><h3>Quick Expense Entry</h3><p>Add amount, category, date, payment method and notes in seconds. Edit or delete records whenever you need.</p></article>
-          <article class="feature"><div class="fi">↗</div><h3>Smart Analytics</h3><p>Visualize monthly totals, category breakdowns and six-month spending trends with charts.</p></article>
-          <article class="feature"><div class="fi">◷</div><h3>Budget Tracking</h3><p>Set a monthly budget and instantly see what you have spent, what remains, and when you're over budget.</p></article>
-          <article class="feature"><div class="fi">↥</div><h3>Import & Export</h3><p>Import CSV statements, auto-detect columns, avoid duplicates, and export your filtered records.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="landing-section" id="smart">
-      <div class="container">
-        <div class="smart">
-          <div class="smart-grid">
-            <div>
-              <div class="kicker" style="color:#8df1df">Smart data entry</div>
-              <h2>Less typing.<br>More tracking.</h2>
-              <p>Manual entry stays available, but It can also turn CSV transaction rows into expense records with category suggestions.</p>
-              <div class="points">
-                <div class="point"><span class="check">✓</span><span>Detect common date, amount and description columns</span></div>
-                <div class="point"><span class="check">✓</span><span>Skip duplicate transactions using simple matching</span></div>
-                <div class="point"><span class="check">✓</span><span>Suggest categories from merchant keywords</span></div>
-                <div class="point"><span class="check">✓</span><span>Keep imported and manual records together</span></div>
-              </div>
-            </div>
-            <div class="import-card">
-              <div class="import-head"><b>Import transactions</b><span class="ready">READY</span></div>
-              <div class="drop"><b>Drop CSV file here</b><span>Use the tracker to choose a statement from your device</span></div>
-              <div class="csv-preview">
-                <div><span>Date</span><span>Description</span><span>Amount</span></div>
-                <div><span>25 Sep</span><span>Canteen</span><span>₹80</span></div>
-                <div><span>24 Sep</span><span>Metro Recharge</span><span>₹300</span></div>
-                <div><span>23 Sep</span><span>Book Store</span><span>₹450</span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="landing-section" id="how">
-      <div class="container">
-        <div class="section-head">
-          <div class="kicker">Simple workflow</div>
-          <h2>From expense to insight in <span class="gradient">three steps.</span></h2>
-          <p>Simple enough for daily use, while still looking complete and professional in a college project demo.</p>
-        </div>
-        <div class="steps">
-          <article class="step"><div class="num">01</div><h3>Add or Import</h3><p>Enter an expense manually, use a quick-add shortcut, or import transaction data from a CSV statement.</p></article>
-          <article class="step"><div class="num">02</div><h3>Organize</h3><p>Use categories, payment methods, search, month filters, and recurring expense rules to keep everything organized.</p></article>
-          <article class="step"><div class="num">03</div><h3>Understand</h3><p>Use charts and budget progress to see where your money is going month by month.</p></article>
-        </div>
-        <div class="cta">
-          <div class="cta-row">
-            <div>
-              <h2>Build a tracker that feels like a real product.</h2>
-              <p>Clean UI, meaningful features, and an actual working dashboard.</p>
-            </div>
-            <div class="cta-actions">
-              <button class="btn btn-primary" data-open-app>Launch Tracker →</button>
-              <a class="btn btn-secondary" href="#features">Features</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="container footer-row">
-      <span>© 2026 CampusSpend · College Expense Tracker</span>
-      <div><a href="#features">Features</a> · <a href="#smart">Import</a> · <a href="#how">How it works</a></div>
-    </div>
-  </footer>
-</div>
-
-<!-- ============ WORKING APP ============ -->
-<div id="appView" class="hidden">
-  <div class="app-shell">
-
-    <aside class="sidebar">
-      <div class="side-brand"><span class="logo-mark">₹</span><span>CampusSpend</span></div>
-      <div class="side-label">Workspace</div>
-      <div class="side-nav">
-        <button class="active" data-go="overview">◉ <span>Overview</span></button>
-        <button data-go="expenses">▣ <span>Expenses</span></button>
-        <button data-go="analytics">◫ <span>Analytics</span></button>
-        <button data-go="recurring">↻ <span>Recurring</span></button>
-      </div>
-      <div class="sidebar-bottom">
-        <button id="demoDataBtn">✦ <span>Load Demo Data</span></button>
-        <button id="backHomeBtn">← <span>Home</span></button>
-      </div>
-    </aside>
-
-    <main class="app-main">
-      <div class="app-top">
-  <div class="app-title">
-    <button class="mobile-back-btn" id="mobileBackBtn" aria-label="Back to home">←</button>
-    <div class="app-title-text">
-      <h1>Dashboard</h1>
-      <p>Manage your college expenses in one place.</p>
-    </div>
+<!-- ==================================================
+     TOPBAR
+     ================================================== -->
+<header class="topbar">
+  <div class="topbar-left">
+    <button id="menuBtn" class="menu-btn" aria-label="Open menu">⋮</button>
+    <h1><div style="display: flex; align-items: center; gap: 10px;">
+  <!-- SVG LOGO START -->
+  <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background Circle -->
+    <circle cx="50" cy="50" r="48" fill="#4f46e5" />
+    <!-- Graduation Cap -->
+    <path d="M50 25 L80 40 L50 55 L20 40 Z" fill="#ffffff" />
+    <path d="M30 48 L30 65 C30 70, 70 70, 70 65 L70 48" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <!-- Rupee Symbol -->
+    <text x="50" y="88" font-family="Arial, sans-serif" font-size="38" font-weight="bold" fill="#fbbf24" text-anchor="middle">₹</text>
+  </svg>
+  <!-- SVG LOGO END -->
+  <h1 style="margin: 0;">CampusSpend</h1>
+</div></h1>
   </div>
-        <div class="top-actions">
-          <div class="budget-pill" id="budgetPill">Budget: ₹0</div>
-          <button class="btn btn-secondary" id="importBtn">Import CSV</button>
-          <button class="btn btn-primary" id="addExpenseBtn">+ Add Expense</button>
-        </div>
-      </div>
+  <div class="topbar-actions">
+    <button id="exportBtn" class="btn-ghost">Export CSV</button>
+    <button id="clearBtn" class="btn-danger">Clear All</button>
+  </div>
+</header>
 
-      <div class="dash-cards" id="overview">
-        <div class="dash-card"><small>Total spent</small><b id="statTotal">₹0</b><span id="statTotalSub">All records</span></div>
-        <div class="dash-card"><small>This month</small><b id="statMonth">₹0</b><span id="statMonthSub">Current month</span></div>
-        <div class="dash-card"><small>Transactions</small><b id="statCount">0</b><span>Expense records</span></div>
-        <div class="dash-card"><small>Top category</small><b id="statTop">—</b><span id="statTopSub">No records</span></div>
-      </div>
+<!-- ==================================================
+     BACKDROP
+     ================================================== -->
+<div id="backdrop" class="backdrop"></div>
 
-      <div class="grid-2">
-        <div class="app-card">
-          <div class="card-head">
-            <div><h3>Spending trend</h3><small>Last 6 months</small></div>
-            <button class="icon-btn" id="resetDemoChart" title="Refresh chart">↻</button>
-          </div>
-          <div class="chart-box"><canvas id="trendCanvas"></canvas></div>
-        </div>
-        <div class="app-card">
-          <div class="card-head">
-            <div><h3>Category breakdown</h3><small>All recorded expenses</small></div>
-            <span id="donutTotal" class="muted" style="font-size:10px;font-weight:800">₹0</span>
-          </div>
-          <div class="chart-box" style="height:190px"><canvas id="donutCanvas"></canvas></div>
-        </div>
-      </div>
-
-      <div class="app-card" style="margin-top:12px">
-        <div class="card-head">
-          <div><h3>Monthly budget</h3><small id="budgetText">Set a budget for the current month.</small></div>
-          <button class="btn btn-secondary btn-sm" id="setBudgetBtn">Set Budget</button>
-        </div>
-        <div class="budget-track"><div class="budget-fill" id="budgetFill"></div></div>
-        <div class="budget-meta">
-          <span id="budgetUsed">₹0 used</span>
-          <span id="budgetRemaining">₹0 remaining</span>
-        </div>
-      </div>
-
-      <div class="app-card" style="margin-top:12px">
-        <div class="card-head">
-          <div><h3>Quick add</h3><small>Common college expenses</small></div>
-        </div>
-        <div class="quick-grid">
-          <button class="quick" data-quick="Canteen|Food|80"><b>☕ Canteen</b><span>₹80</span></button>
-          <button class="quick" data-quick="Auto/Metro|Transport|60"><b>🚌 Transport</b><span>₹60</span></button>
-          <button class="quick" data-quick="Stationery|Stationery|50"><b>✎ Stationery</b><span>₹50</span></button>
-          <button class="quick" data-quick="Snacks|Food|40"><b>🍪 Snacks</b><span>₹40</span></button>
-        </div>
-      </div>
-
-      <div class="app-card records" id="expenses">
-        <div class="card-head">
-          <div><h3>Expense records</h3><small id="recordsCount">0 records</small></div>
-          <button class="btn btn-success btn-sm" id="exportBtn">Export CSV</button>
-        </div>
-        <div class="toolbar">
-          <input class="search" id="searchInput" placeholder="Search description or payment method…">
-          <select class="search" id="categoryFilter"><option value="all">All categories</option></select>
-          <select class="search" id="monthFilter"><option value="all">All months</option></select>
-          <select class="search" id="paymentFilter">
-            <option value="all">All payments</option>
-            <option>Cash</option><option>UPI</option><option>Card</option><option>Net Banking</option>
-          </select>
-          <button class="btn btn-secondary btn-sm toolbar-export" id="clearFiltersBtn">Reset filters</button>
-        </div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Date</th><th>Category</th><th>Description</th>
-                <th>Payment</th><th>Amount</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="expenseBody"></tbody>
-          </table>
-          <div class="empty-state hidden" id="emptyState">No expenses found. Add your first expense or load demo data.</div>
-        </div>
-      </div>
-
-      <div id="analytics" class="app-card records">
-        <div class="card-head">
-          <div><h3>Analytics</h3><small>Current data summary</small></div>
-        </div>
-        <div id="analyticsSummary" class="grid-2" style="margin-top:0"></div>
-      </div>
-
-      <div id="recurring" class="app-card records">
-        <div class="card-head">
-          <div><h3>Recurring expenses</h3><small>Auto-create due expenses when the tracker opens.</small></div>
-          <button class="btn btn-primary btn-sm" id="addRecurringBtn">+ Add recurring</button>
-        </div>
-        <div id="recurringList" class="recurring-list"></div>
-      </div>
-    </main>
+<!-- ==================================================
+     SIDEBAR
+     ================================================== -->
+<aside id="sidebar" class="sidebar">
+  <div class="sidebar-head">
+    <div class="avatar">🎓</div>
+    <div>
+      <div class="user-name" id="sidebarUser">Student</div>
+      <div class="user-sub">Expense Tracker</div>
+    </div>
+    <button id="closeMenuBtn" class="close-btn" aria-label="Close menu">✕</button>
   </div>
 
-  <!-- MOBILE BOTTOM NAV -->
-  <nav class="mobile-nav" id="mobileNav">
-    <button class="active" data-go="overview"><span class="nav-icon">◉</span>Home</button>
-    <button data-go="expenses"><span class="nav-icon">▣</span>Expenses</button>
-    <button data-go="analytics"><span class="nav-icon">◫</span>Analytics</button>
-    <button data-go="recurring"><span class="nav-icon">↻</span>Recurring</button>
+  <nav class="sidebar-nav">
+    <button class="nav-item active" data-page="information">ℹ️ Information</button>
+    <button class="nav-item" data-page="overview">📊 Overview</button>
+    <button class="nav-item" data-page="transactions">📒 Transactions</button>
+    <button class="nav-item" data-page="account">👤 Account</button>
+    <button class="nav-item" data-page="budget">💰 Budget</button>
+    <button class="nav-item" data-page="settings">⚙️ Settings</button>
   </nav>
 
-  <!-- MOBILE FAB -->
-  <button class="mobile-fab" id="mobileFab" aria-label="Add expense">+</button>
-</div>
+  <div class="sidebar-foot">v1.0 · WD Project</div>
+</aside>
 
-<!-- ============ MODALS ============ -->
-<div class="modal" id="expenseModal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2 id="expenseModalTitle">Add Expense</h2>
-      <button class="icon-btn modal-close" data-close="expenseModal">×</button>
-    </div>
-    <form id="expenseForm">
-      <div class="form-grid">
-        <div class="field"><label>Amount (₹)</label><input id="fAmount" type="number" min="0.01" step="0.01" required></div>
-        <div class="field"><label>Category</label><select id="fCategory" required></select></div>
-        <div class="field"><label>Date</label><input id="fDate" type="date" required></div>
-        <div class="field"><label>Payment method</label>
-          <select id="fPayment"><option>UPI</option><option>Cash</option><option>Card</option><option>Net Banking</option></select>
-        </div>
-        <div class="field full"><label>Description</label><input id="fDescription" maxlength="90" placeholder="e.g. Canteen lunch"></div>
+<!-- ==================================================
+     MAIN CONTAINER
+     ================================================== -->
+<main class="container">
+
+  <!-- ============ PAGE: INFORMATION ============ -->
+  <section class="page active" id="page-information">
+
+    <div class="info-hero">
+      <div class="info-badge">🏫 Built for college life</div>
+      <h1 class="info-title">Know where your <span class="highlight">money goes.</span></h1>
+      <p class="info-subtitle">
+        A smart college expense tracker to record daily spending, set budgets, import
+        transaction data, manage recurring expenses, and understand your money through
+        visual analytics.
+      </p>
+      <div class="info-actions">
+        <button class="btn-primary" onclick="goToPage('overview')">Start Tracking →</button>
+        <button class="btn-ghost" onclick="scrollToFeatures()">See Features</button>
       </div>
-      <div class="modal-foot">
-        <button type="button" class="btn btn-secondary modal-close" data-close="expenseModal">Cancel</button>
-        <button class="btn btn-primary" type="submit">Save Expense</button>
-      </div>
-    </form>
-  </div>
-</div>
+      <p class="info-note">Ready to use · Data stays in your browser · No account required</p>
+    </div>
 
-<div class="modal" id="budgetModal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2>Monthly Budget</h2>
-      <button class="icon-btn modal-close" data-close="budgetModal">×</button>
-    </div>
-    <div class="field"><label>Budget for current month (₹)</label><input id="budgetInput" type="number" min="0" step="1" placeholder="15000"></div>
-    <div class="notice">Your budget is stored locally in this browser and used to calculate the progress bar and remaining amount.</div>
-    <div class="modal-foot">
-      <button class="btn btn-secondary modal-close" data-close="budgetModal">Cancel</button>
-      <button class="btn btn-primary" id="saveBudgetBtn">Save budget</button>
-    </div>
-  </div>
-</div>
-
-<div class="modal" id="recurringModal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2>Recurring Expense</h2>
-      <button class="icon-btn modal-close" data-close="recurringModal">×</button>
-    </div>
-    <form id="recurringForm">
-      <div class="form-grid">
-        <div class="field"><label>Amount (₹)</label><input id="rAmount" type="number" min="0.01" step="0.01" required></div>
-        <div class="field"><label>Category</label><select id="rCategory"></select></div>
-        <div class="field"><label>Description</label><input id="rDescription" required maxlength="90" placeholder="Hostel fee"></div>
-        <div class="field"><label>Frequency</label>
-          <select id="rFrequency"><option value="monthly">Monthly</option><option value="weekly">Weekly</option></select>
+    <div class="card info-dashboard">
+      <div class="info-dash-head"><span class="dot"></span> CampusSpend Dashboard</div>
+      <div class="info-stats">
+        <div class="info-stat">
+          <div class="info-stat-label">Total Spent</div>
+          <div class="info-stat-value">₹12,840</div>
+          <div class="info-stat-sub green">↓ 8.2%</div>
         </div>
-        <div class="field"><label>Next date</label><input id="rDate" type="date" required></div>
-        <div class="field"><label>Payment</label>
-          <select id="rPayment"><option>UPI</option><option>Cash</option><option>Card</option><option>Net Banking</option></select>
+        <div class="info-stat">
+          <div class="info-stat-label">Monthly Budget</div>
+          <div class="info-stat-value">₹15,000</div>
+          <div class="info-stat-sub">₹2,160 left</div>
+        </div>
+        <div class="info-stat">
+          <div class="info-stat-label">Top Category</div>
+          <div class="info-stat-value">Food</div>
+          <div class="info-stat-sub">34% of total</div>
         </div>
       </div>
-      <div class="notice">When the app opens, any due recurring expense will be added automatically and its next date will move forward.</div>
-      <div class="modal-foot">
-        <button type="button" class="btn btn-secondary modal-close" data-close="recurringModal">Cancel</button>
-        <button class="btn btn-primary" type="submit">Save recurring</button>
+      <div class="info-tag">✓ Budget healthy — You have room for the month</div>
+    </div>
+
+    <div id="features">
+      <h2 class="info-section-title">Everything in one place</h2>
+      <p class="info-section-sub">
+        Your college money, finally under control. Track the things students actually
+        spend on — food, transport, books, hostel, subscriptions, and everyday payments.
+      </p>
+      <div class="info-features">
+        <div class="info-feature">
+          <div class="info-feature-icon">₹</div>
+          <h3>Quick Expense Entry</h3>
+          <p>Add amount, category, date, payment method and notes in seconds. Edit or delete records anytime.</p>
+        </div>
+        <div class="info-feature">
+          <div class="info-feature-icon">↗</div>
+          <h3>Smart Analytics</h3>
+          <p>Visualize monthly totals, category breakdowns and six-month spending trends with charts.</p>
+        </div>
+        <div class="info-feature">
+          <div class="info-feature-icon">◷</div>
+          <h3>Budget Tracking</h3>
+          <p>Set a monthly budget and instantly see what you have spent and what remains.</p>
+        </div>
+        <div class="info-feature">
+          <div class="info-feature-icon">↥</div>
+          <h3>Import &amp; Export</h3>
+          <p>Import CSV statements, auto-detect columns, avoid duplicates, and export filtered records.</p>
+        </div>
       </div>
-    </form>
+    </div>
+
+    <h2 class="info-section-title">Simple workflow</h2>
+    <p class="info-section-sub">From expense to insight in three steps.</p>
+
+    <div class="info-steps">
+      <div class="info-step">
+        <div class="step-num">01</div>
+        <h3>Add or Import</h3>
+        <p>Enter an expense manually, use a quick-add shortcut, or import transaction data from a CSV statement.</p>
+      </div>
+      <div class="info-step">
+        <div class="step-num">02</div>
+        <h3>Organize</h3>
+        <p>Use categories, payment methods, search, and month filters to keep everything organized.</p>
+      </div>
+      <div class="info-step">
+        <div class="step-num">03</div>
+        <h3>Understand</h3>
+        <p>Use charts and budget progress to see where your money is going month by month.</p>
+      </div>
+    </div>
+
+    <div class="info-cta">
+      <h2>Build a tracker that feels like a real product.</h2>
+      <p>Clean UI, meaningful features, and an actual working dashboard.</p>
+      <button class="btn-primary" onclick="goToPage('overview')">Open Tracker →</button>
+    </div>
+
+    <div class="info-tech">
+      <span class="tech-tag">HTML • CSS • JS</span>
+      <span class="tech-tag">LocalStorage</span>
+      <span class="tech-tag">CSV Import</span>
+      <span class="tech-tag">Recurring Expenses</span>
+    </div>
+
+  </section>
+
+  <!-- ============ PAGE: OVERVIEW ============ -->
+  <section class="page" id="page-overview">
+    <h2 class="page-title">Overview</h2>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Spent</div>
+        <div class="stat-value" id="totalSpent">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">This Month</div>
+        <div class="stat-value" id="monthSpent">₹0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top Category</div>
+        <div class="stat-value" id="topCategory">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Transactions</div>
+        <div class="stat-value" id="txnCount">0</div>
+      </div>
+    </div>
+
+    <!-- Quick Add (customisable) -->
+    <!-- Quick Add -->
+<div class="card">
+  <div class="card-head-row">
+    <h3>Quick Add</h3>
+    <button class="edit-inline-btn" id="editQuickBtn" type="button">✎ Customise</button>
+  </div>
+  
+  <div style="display: flex; align-items: center; gap: 8px; position: relative;">
+    <div class="quick-grid" id="quickGrid" style="flex: 1;"></div>
+    <button id="scrollQuickBtn" type="button" style="display:none; background:#fff; border:1.5px solid var(--border); border-radius:50%; width:32px; height:32px; flex-shrink:0; cursor:pointer; font-weight:bold; align-items:center; justify-content:center; box-shadow:0 2px 5px rgba(0,0,0,0.1);">›</button>
+  </div>
+  
+  <p class="hint" id="quickHint"></p>
+</div>
+
+    <!-- Import Records (CSV) -->
+    <div class="card">
+      <div class="card-head-row">
+        <h3>Import Records</h3>
+        <span class="muted small">CSV from bank / UPI apps</span>
+      </div>
+      <div class="drop-zone" id="dropZone">
+        <div class="drop-icon">↥</div>
+        <div class="drop-title">Drop CSV file here</div>
+        <div class="drop-sub">or <span class="link">browse</span> from device</div>
+        <input type="file" id="csvFile" accept=".csv,text/csv" hidden>
+      </div>
+      <p class="hint">Columns auto-detect honge — Date, Amount, Description.</p>
+    </div>
+
+    <div class="card">
+      <h3>Category Breakdown</h3>
+      <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Last 6 Months Trend</h3>
+      <div class="chart-box"><canvas id="trendChart"></canvas></div>
+    </div>
+  </section>
+
+     
+
+  <!-- ============ PAGE: TRANSACTIONS ============ -->
+  <section class="page" id="page-transactions">
+    <h2 class="page-title">Transactions</h2>
+
+    <div class="card">
+      <h3 id="formTitle">Add Expense</h3>
+      <form id="expenseForm" class="form-grid">
+        <label>Amount (₹)
+          <input type="number" id="amount" step="0.01" min="0.01" required>
+        </label>
+        <label>Category
+          <select id="category" required>
+            <option value="Shopping">Shopping</option>
+            <option value="Food">Food</option>
+            <option value="Phone">Phone</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Education">Education</option>
+            <option value="Beauty">Beauty</option>
+            <option value="Sports">Sports</option>
+            <option value="Social">Social</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Clothing">Clothing</option>
+            <option value="Car">Car</option>
+            <option value="Alcohol">Alcohol</option>
+            <option value="Electronics">Electronics</option>
+            <option value="Cigarettes">Cigarettes</option>
+            <option value="Travel">Travel</option>
+            <option value="Health">Health</option>
+            <option value="Pets">Pets</option>
+            <option value="Repairs">Repairs</option>
+            <option value="Housing">Housing</option>
+            <option value="Home">Home</option>
+            <option value="Gifts">Gifts</option>
+            <option value="Donations">Donations</option>
+            <option value="Lottery">Lottery</option>
+            <option value="Snacks">Snacks</option>
+            <option value="Kids">Kids</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Other">Other</option>
+          </select>
+        </label>
+        <label>Date
+          <input type="date" id="date" required>
+        </label>
+        <label>Payment
+          <select id="payment">
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Card">Card</option>
+            <option value="Net Banking">Net Banking</option>
+          </select>
+        </label>
+        <label class="full">Description
+          <input type="text" id="description" placeholder="e.g. Canteen lunch" maxlength="60">
+        </label>
+        <div class="full form-actions">
+          <button type="submit" class="btn-primary" id="submitBtn">Add Expense</button>
+          <button type="button" class="btn-ghost" id="cancelEditBtn" style="display:none;">Cancel</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="list-head">
+        <h3>All Records</h3>
+        <div class="filters">
+          <input type="search" id="searchInput" placeholder="Search…">
+          <select id="filterCategory"><option value="all">All Categories</option></select>
+          <select id="filterMonth"><option value="all">All Months</option></select>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Category</th><th>Description</th>
+              <th>Payment</th><th class="right">Amount</th><th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <p id="emptyState" class="empty">No expenses yet. Add your first one!</p>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: ACCOUNT ============ -->
+  <section class="page" id="page-account">
+    <h2 class="page-title">Account</h2>
+
+    <div class="card profile-card">
+      <div class="profile-avatar">👤</div>
+      <div>
+        <h3 id="accName">Student Name</h3>
+        <p id="accEmail" class="muted">student@college.edu</p>
+        <p id="accSince" class="muted">Member since —</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Account Details</h3>
+      <form id="accountForm" class="form-grid">
+        <label>Full Name<input type="text" id="inpName" maxlength="40"></label>
+        <label>Email<input type="email" id="inpEmail" maxlength="60"></label>
+        <label>College / Course<input type="text" id="inpCollege" maxlength="40"></label>
+        <label>Phone<input type="tel" id="inpPhone" maxlength="15"></label>
+        <div class="full form-actions">
+          <button type="submit" class="btn-primary">Save Details</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: BUDGET ============ -->
+  <section class="page" id="page-budget">
+    <h2 class="page-title">Budget</h2>
+
+    <div class="card">
+      <div class="list-head">
+        <h3>Monthly Budget</h3>
+        <div class="budget-input-wrap">
+          <input type="number" id="budgetInput" placeholder="Set budget (₹)" min="0">
+          <button id="saveBudgetBtn" class="btn-primary">Save</button>
+        </div>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="budgetBar"></div>
+      </div>
+      <p id="budgetText" class="muted" style="margin-top:10px;">No budget set.</p>
+    </div>
+
+    <div class="card">
+      <h3>Category Limits</h3>
+      <p class="muted">Har category ka monthly limit set karo.</p>
+      <div id="catLimits" class="cat-limits"></div>
+    </div>
+  </section>
+
+  <!-- ============ PAGE: SETTINGS ============ -->
+  <section class="page" id="page-settings">
+    <h2 class="page-title">Settings</h2>
+
+    <div class="card">
+      <h3>Preferences</h3>
+      <div class="setting-row">
+        <div>
+          <div><b>Currency</b></div>
+          <div class="muted">Display symbol</div>
+        </div>
+        <select id="setCurrency">
+          <option value="₹">₹ INR</option>
+          <option value="$">$ USD</option>
+          <option value="€">€ EUR</option>
+          <option value="£">£ GBP</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div><b>Date Format</b></div>
+          <div class="muted">How dates appear</div>
+        </div>
+        <select id="setDateFmt">
+          <option value="iso">YYYY-MM-DD</option>
+          <option value="dmy">DD/MM/YYYY</option>
+          <option value="mdy">MM/DD/YYYY</option>
+        </select>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div><b>Dark Mode</b></div>
+          <div class="muted">Toggle theme</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="setDark">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Data</h3>
+      <div class="setting-row">
+        <div>
+          <div><b>Export Backup</b></div>
+          <div class="muted">Download JSON</div>
+        </div>
+        <button id="backupBtn" class="btn-ghost">Download</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div><b>Import Backup</b></div>
+          <div class="muted">Restore from JSON</div>
+        </div>
+        <input type="file" id="restoreInput" accept=".json" style="display:none;">
+        <button id="restoreBtn" class="btn-ghost">Upload</button>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div style="color:#ef4444;"><b>Reset Everything</b></div>
+          <div class="muted">Delete all data</div>
+        </div>
+        <button id="resetBtn" class="btn-danger">Reset</button>
+      </div>
+    </div>
+    
+  </section>
+
+</main>
+
+<!-- ==================================================
+     BOTTOM NAVIGATION
+     ================================================== -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="nav-btn active" data-tab="information">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/>
+      <line x1="8" y1="12" x2="21" y2="12"/>
+      <line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/>
+      <line x1="3" y1="12" x2="3.01" y2="12"/>  
+      <line x1="3" y1="18" x2="3.01" y2="18"/>
+    </svg>
+    <span>Home</span>
+  </button>
+
+  <button class="nav-btn" data-tab="overview">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>
+      <path d="M22 12A10 10 0 0 0 12 2v10z"/>
+    </svg>
+    <span>Charts</span>
+  </button>
+
+  <button class="nav-add" id="navAddBtn" aria-label="Add transaction">+</button>
+
+  <button class="nav-btn" data-tab="transactions">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+    <span>Reports</span>
+  </button>
+
+  <button class="nav-btn" data-tab="account">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+    <span>Profile</span>
+  </button>
+</nav>
+
+<!-- ==================================================
+     ADD TRANSACTION MODAL
+     ================================================== -->`
+
+<!-- ==================================================
+     IMPORT PREVIEW MODAL
+     ================================================== -->
+<div class="import-modal" id="importModal">
+  <div class="import-box">
+    <div class="import-head">
+      <h3>Preview Import</h3>
+      <button class="close-btn" id="importCloseBtn">✕</button>
+    </div>
+    <div class="import-body" id="importPreview"></div>
+    <div class="import-foot">
+      <span class="import-count" id="importCount">0 records</span>
+      <div class="import-actions">
+        <button class="btn-ghost" id="importCancelBtn">Cancel</button>
+        <button class="btn-primary" id="importConfirmBtn">Import Selected</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="modal" id="importModal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <h2>Import CSV</h2>
-      <button class="icon-btn modal-close" data-close="importModal">×</button>
-    </div>
-    <div class="field"><label>Select CSV file</label><input id="csvFile" type="file" accept=".csv,text/csv"></div>
-    <div class="notice">The importer tries to detect columns such as date, amount, description/merchant, category and payment. Category is suggested from merchant keywords when missing.</div>
-    <div class="modal-foot">
-      <button class="btn btn-secondary modal-close" data-close="importModal">Cancel</button>
-      <button class="btn btn-primary" id="processCsvBtn">Import records</button>
+<!-- ==================================================
+     ADD CATEGORY MODAL
+     ================================================== -->
+<div class="mini-modal" id="addCatModal">
+  <div class="mini-box">
+    <h3>Add Custom Category</h3>
+    <label>Name
+      <input type="text" id="newCatName" placeholder="e.g. Books, Gym" maxlength="20">
+    </label>
+    <label>Icon
+      <select id="newCatIcon">
+        <option value="plus">➕ Plus</option>
+        <option value="cart">🛒 Cart</option>
+        <option value="utensils">🍴 Utensils</option>
+        <option value="phone">📱 Phone</option>
+        <option value="gradcap">🎓 Education</option>
+        <option value="car">🚗 Car</option>
+        <option value="house">🏠 House</option>
+        <option value="plane">✈️ Travel</option>
+        <option value="heart">❤️ Heart</option>
+        <option value="gift">🎁 Gift</option>
+        <option value="apple">🍎 Apple</option>
+        <option value="dice">🎲 Dice</option>
+      </select>
+    </label>
+    <div class="mini-actions">
+      <button class="btn-ghost" id="cancelAddCatBtn">Cancel</button>
+      <button class="btn-primary" id="saveAddCatBtn">Save</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
-
+<!-- ==================================================
+     ADD QUICK ITEM MODAL
+     ================================================== -->
+<div class="mini-modal" id="addQuickModal">
+  <div class="mini-box">
+    <h3>Add Quick Item</h3>
+    <label>Label
+      <input type="text" id="qLabel" placeholder="e.g. Chai" maxlength="20">
+    </label>
+    <label>Amount (₹)
+      <input type="number" id="qAmount" placeholder="10" min="1">
+    </label>
+    <label>Category
+      <select id="qCategory"></select>
+    </label>
+    <div class="mini-actions">
+      <button class="btn-ghost" id="cancelAddQuickBtn">Cancel</button>
+      <button class="btn-primary" id="saveAddQuickBtn">Save</button>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+  ['addModal','importModal','addCatModal','addQuickModal'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) { el.classList.remove('open'); el.style.display = 'none'; }
+  });
+});
+</script>
 <script src="app.js"></script>
 </body>
 </html>

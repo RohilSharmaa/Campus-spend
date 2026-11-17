@@ -1,811 +1,1513 @@
+
 /* ============================================================
-   CampusSpend — core logic
+   CAMPUSSPEND — MASTER APP.JS
    ============================================================ */
-(() => {
-'use strict';
 
-const KEYS = {
-  expenses: 'campus_expenses_v2',
-  budget:   'campus_budget_v2',
-  recurring:'campus_recurring_v2'
+/* ---------- Storage Keys ---------- */
+var EXPENSE_KEY   = 'cs_expenses_v1';
+var BUDGET_KEY    = 'cs_budget_v1';
+var ACCOUNT_KEY   = 'cs_account_v1';
+var SETTINGS_KEY  = 'cs_settings_v1';
+var LIMITS_KEY    = 'cs_limits_v1';
+var PAGE_KEY      = 'cs_last_page';
+
+/* ---------- State ---------- */
+var expenses = [];
+var monthlyBudget = 0;
+var editingId = null;
+var categoryChart = null;
+var trendChart = null;
+var currentType = 'expense';
+var selectedCategory = null;
+
+var CATEGORY_COLORS = {
+  Shopping: '#ec4899',
+  Food: '#f97316',
+  Phone: '#06b6d4',
+  Entertainment: '#a855f7',
+  Education: '#8b5cf6',
+  Beauty: '#f472b6',
+  Sports: '#22c55e',
+  Social: '#3b82f6',
+  Transportation: '#0ea5e9',
+  Clothing: '#14b8a6',
+  Car: '#64748b',
+  Alcohol: '#dc2626',
+  Electronics: '#6366f1',
+  Cigarettes: '#78716c',
+  Travel: '#f59e0b',
+  Health: '#10b981',
+  Pets: '#d97706',
+  Repairs: '#78716c',
+  Housing: '#475569',
+  Home: '#0891b2',
+  Gifts: '#e879f9',
+  Donations: '#f43f5e',
+  Lottery: '#eab308',
+  Snacks: '#fb923c',
+  Kids: '#38bdf8',
+  Vegetables: '#84cc16',
+  Fruits: '#f97316',
+  Other: '#64748b'
 };
 
-const CATEGORIES = ['Food','Transport','Books','Stationery','Hostel','Tuition','Entertainment','Medical','Subscriptions','Other'];
+/* ---------- DOM Shortcut ---------- */
+function $(id) { return document.getElementById(id); }
 
-const CATEGORY_COLORS = {
-  Food:'#5b5ce2', Transport:'#12a594', Books:'#f4b85a', Stationery:'#e56878',
-  Hostel:'#7a63e8', Tuition:'#35a7d5', Entertainment:'#ef7c37', Medical:'#39a96b',
-  Subscriptions:'#8f73d9', Other:'#98a1b1'
-};
-
-let state = {
-  expenses: [],
-  budget: 0,
-  recurring: [],
-  editId: null,
-  filters: { q:'', category:'all', month:'all', payment:'all' }
-};
-
-const $  = s => document.querySelector(s);
-const $$ = s => [...document.querySelectorAll(s)];
-
-const money = n => '₹' + Number(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const isoToday = () => new Date().toISOString().slice(0,10);
-const monthKey = d => String(d).slice(0,7);
-const monthName = k => {
-  const [y,m] = k.split('-');
-  return new Date(Number(y), Number(m)-1, 1).toLocaleString('en-IN',{month:'short',year:'numeric'});
-};
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-
-/* ---------- Toast ---------- */
-function toast(msg){
-  const el = $('#toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  clearTimeout(toast.t);
-  toast.t = setTimeout(() => el.classList.remove('show'), 2400);
+/* ============================================================
+   STORAGE
+   ============================================================ */
+function loadData() {
+  try { expenses = JSON.parse(localStorage.getItem(EXPENSE_KEY)) || []; }
+  catch (e) { expenses = []; }
+  monthlyBudget = Number(localStorage.getItem(BUDGET_KEY)) || 0;
 }
 
-/* ---------- Storage ---------- */
-function read(key, fallback){
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
-  catch { return fallback; }
-}
-function persist(){
-  localStorage.setItem(KEYS.expenses,  JSON.stringify(state.expenses));
-  localStorage.setItem(KEYS.budget,    String(state.budget));
-  localStorage.setItem(KEYS.recurring, JSON.stringify(state.recurring));
-}
-function load(){
-  state.expenses  = read(KEYS.expenses, []);
-  state.budget    = Number(localStorage.getItem(KEYS.budget) || 0);
-  state.recurring = read(KEYS.recurring, []);
-  processRecurring();
+function saveData() {
+  localStorage.setItem(EXPENSE_KEY, JSON.stringify(expenses));
 }
 
-/* ---------- Helpers ---------- */
-const escapeHtml = s => String(s??'').replace(/[&<>"']/g, c =>
-  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-const openModal  = id => $('#'+id).classList.add('open');
-const closeModal = id => $('#'+id).classList.remove('open');
-
-const todayExpenses = () => {
-  const k = monthKey(isoToday());
-  return state.expenses.filter(e => monthKey(e.date) === k);
-};
-
-function getFiltered(){
-  const q = state.filters.q.toLowerCase();
-  return [...state.expenses]
-    .filter(e => state.filters.category === 'all' || e.category === state.filters.category)
-    .filter(e => state.filters.month === 'all'    || monthKey(e.date) === state.filters.month)
-    .filter(e => state.filters.payment === 'all'  || e.paymentMethod === state.filters.payment)
-    .filter(e => !q
-      || String(e.description).toLowerCase().includes(q)
-      || String(e.paymentMethod).toLowerCase().includes(q)
-      || String(e.category).toLowerCase().includes(q))
-    .sort((a,b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+function saveBudget() {
+  localStorage.setItem(BUDGET_KEY, String(monthlyBudget));
 }
 
-function totals(){
-  const all = state.expenses.reduce((s,e) => s + Number(e.amount), 0);
-  const mon = todayExpenses().reduce((s,e) => s + Number(e.amount), 0);
-  const cats = {};
-  state.expenses.forEach(e => cats[e.category] = (cats[e.category] || 0) + Number(e.amount));
-  const top = Object.entries(cats).sort((a,b) => b[1] - a[1])[0];
-  return { all, mon, cats, top };
+function loadJSON(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+  catch (e) { return fallback; }
 }
 
-function fillCategorySelects(){
-  const opts = CATEGORIES.map(c => `<option>${c}</option>`).join('');
-  $('#fCategory').innerHTML = opts;
-  $('#rCategory').innerHTML = opts;
+function saveJSON(key, obj) {
+  localStorage.setItem(key, JSON.stringify(obj));
 }
 
-/* ---------- Render: filters ---------- */
-function renderFilters(){
-  const cats   = [...new Set(state.expenses.map(e => e.category))].sort();
-  const months = [...new Set(state.expenses.map(e => monthKey(e.date)))].sort().reverse();
-  const c = $('#categoryFilter');
-  const m = $('#monthFilter');
-  c.innerHTML = '<option value="all">All categories</option>' + cats.map(x => `<option>${escapeHtml(x)}</option>`).join('');
-  m.innerHTML = '<option value="all">All months</option>'     + months.map(x => `<option value="${x}">${monthName(x)}</option>`).join('');
-  c.value = cats.includes(state.filters.category) ? state.filters.category : 'all';
-  m.value = months.includes(state.filters.month)  ? state.filters.month    : 'all';
-  $('#paymentFilter').value = state.filters.payment;
-  $('#searchInput').value   = state.filters.q;
-}
-
-/* ---------- Render: stats ---------- */
-function renderStats(){
-  const t = totals();
-  $('#statTotal').textContent = money(t.all);
-  $('#statMonth').textContent = money(t.mon);
-  $('#statCount').textContent = state.expenses.length;
-  $('#statTop').textContent   = t.top ? t.top[0] : '—';
-  $('#statTopSub').textContent = t.top ? money(t.top[1]) + ' total' : 'No records';
-  $('#statMonthSub').textContent = monthName(monthKey(isoToday()));
-  $('#budgetPill').textContent = 'Budget: ' + money(state.budget);
-
-  const pct = state.budget ? Math.min(100, t.mon / state.budget * 100) : 0;
-  $('#budgetFill').style.width = pct + '%';
-  $('#budgetFill').style.background =
-    pct >= 100 ? 'var(--danger)' : pct >= 80 ? 'var(--warning)' : 'var(--green)';
-  $('#budgetUsed').textContent = money(t.mon) + ' used';
-  $('#budgetRemaining').textContent = state.budget
-    ? ((state.budget - t.mon >= 0)
-        ? money(state.budget - t.mon) + ' remaining'
-        : money(t.mon - state.budget) + ' over budget')
-    : 'No budget set';
-  $('#budgetText').textContent = state.budget
-    ? 'Used ' + pct.toFixed(0) + '% of ' + money(state.budget)
-    : 'Set a budget for the current month.';
-  $('#budgetInput').value = state.budget || '';
-  $('#donutTotal').textContent = money(t.all);
-}
-
-/* ---------- Render: table ---------- */
-function renderTable(){
-  const rows = getFiltered();
-  const body = $('#expenseBody');
-  body.innerHTML = '';
-  $('#recordsCount').textContent = rows.length + ' record' + (rows.length === 1 ? '' : 's');
-  $('#emptyState').classList.toggle('hidden', rows.length > 0);
-
-  rows.forEach(e => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td data-label="Date">${escapeHtml(e.date)}</td>
-      <td data-label="Category"><span class="badge-cat">${escapeHtml(e.category)}</span></td>
-      <td data-label="Description">${escapeHtml(e.description || '—')}</td>
-      <td data-label="Payment">${escapeHtml(e.paymentMethod || '—')}</td>
-      <td data-label="Amount"><strong>${money(e.amount)}</strong></td>
-      <td data-label="Actions">
-        <div class="actions-cell">
-          <button class="btn btn-secondary btn-sm" data-edit="${e.id}">Edit</button>
-          <button class="btn btn-danger btn-sm" data-del="${e.id}">Delete</button>
-        </div>
-      </td>`;
-    body.appendChild(tr);
+/* ============================================================
+   HELPERS
+   ============================================================ */
+function fmt(n) {
+  var s = loadJSON(SETTINGS_KEY, {});
+  var sym = s.currency || '₹';
+  return sym + Number(n).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
 }
 
-/* ---------- Charts ---------- */
-function roundRect(ctx, x, y, w, h, r){
-  if (h <= 0) return;
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y,     x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x,     y + h, r);
-  ctx.arcTo(x,     y + h, x,     y,     r);
-  ctx.arcTo(x,     y,     x + w, y,     r);
-  ctx.closePath();
-  ctx.fill();
+function todayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
 }
 
-function drawTrend(){
-  const canvas = $('#trendCanvas');
-  const ctx = canvas.getContext('2d');
-  const rect = canvas.getBoundingClientRect();
-  const dpr = devicePixelRatio || 1;
-  canvas.width  = rect.width  * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-  const w = rect.width, h = rect.height;
-  ctx.clearRect(0, 0, w, h);
+function monthKey(iso) { return iso.slice(0, 7); }
 
-  const now = new Date();
-  const months = [];
-  for (let i = 5; i >= 0; i--){
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
-  }
-  const vals = months.map(m =>
-    state.expenses.filter(e => monthKey(e.date) === m).reduce((s,e) => s + Number(e.amount), 0)
-  );
-  const max = Math.max(...vals, 1);
+function monthLabel(key) {
+  var p = key.split('-');
+  var d = new Date(p[0], p[1] - 1, 1);
+  return d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+}
 
-  ctx.strokeStyle = '#eef0f4';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 4; i++){
-    const y = 20 + i * (h - 48) / 3;
-    ctx.beginPath();
-    ctx.moveTo(10, y);
-    ctx.lineTo(w - 8, y);
-    ctx.stroke();
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function formatDate(iso) {
+  var s = loadJSON(SETTINGS_KEY, {});
+  var p = iso.split('-');
+  if (s.dateFmt === 'dmy') return p[2] + '/' + p[1] + '/' + p[0];
+  if (s.dateFmt === 'mdy') return p[1] + '/' + p[2] + '/' + p[0];
+  return iso;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+function openSidebar() {
+  if ($('sidebar')) $('sidebar').classList.add('open');
+  if ($('backdrop')) $('backdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSidebar() {
+  if ($('sidebar')) $('sidebar').classList.remove('open');
+  if ($('backdrop')) $('backdrop').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+function goToPage(name) {
+  var pages = document.querySelectorAll('.page');
+  for (var i = 0; i < pages.length; i++) pages[i].classList.remove('active');
+
+  var target = $('page-' + name);
+  if (target) target.classList.add('active');
+
+  var navs = document.querySelectorAll('.nav-item');
+  for (var j = 0; j < navs.length; j++) {
+    if (navs[j].getAttribute('data-page') === name) navs[j].classList.add('active');
+    else navs[j].classList.remove('active');
   }
 
-  const gap = 9;
-  const bw = (w - 40 - gap * 5) / 6;
-  vals.forEach((v, i) => {
-    const bh = Math.max(3, (h - 66) * v / max);
-    const x = 16 + i * (bw + gap);
-    const y = h - 35 - bh;
-    const g = ctx.createLinearGradient(0, y, 0, h - 35);
-    g.addColorStop(0, '#7779f0');
-    g.addColorStop(1, '#5b5ce2');
-    ctx.fillStyle = g;
-    roundRect(ctx, x, y, bw, bh, 7);
-
-    const label = new Date(Number(months[i].slice(0,4)), Number(months[i].slice(5,7))-1, 1)
-      .toLocaleString('en-IN', { month:'short' });
-    ctx.fillStyle = '#9aa1ae';
-    ctx.font = '10px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(label, x + bw/2, h - 14);
-
-    if (v){
-      ctx.fillStyle = '#4d5667';
-      ctx.font = '9px Inter, sans-serif';
-      ctx.fillText('₹' + Math.round(v/1000) + 'k', x + bw/2, y - 6);
-    }
-  });
-}
-
-function drawDonut(){
-  const canvas = $('#donutCanvas');
-  const ctx = canvas.getContext('2d');
-  const rect = canvas.getBoundingClientRect();
-  const dpr = devicePixelRatio || 1;
-  canvas.width  = rect.width  * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
-  const w = rect.width, h = rect.height;
-  ctx.clearRect(0, 0, w, h);
-
-  const { cats } = totals();
-  const data = Object.entries(cats).sort((a,b) => b[1] - a[1]);
-  const cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 22, inner = r * .58;
-  const total = data.reduce((s,x) => s + x[1], 0) || 1;
-
-  let start = -Math.PI/2;
-  data.forEach(([name, val]) => {
-    const angle = (val / total) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, start, start + angle);
-    ctx.lineWidth = r - inner;
-    ctx.strokeStyle = CATEGORY_COLORS[name] || '#98a1b1';
-    ctx.stroke();
-    start += angle;
-  });
-
-  ctx.fillStyle = '#101828';
-  ctx.font = 'bold 18px Inter, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(money(total).replace('.00',''), cx, cy + 2);
-  ctx.fillStyle = '#9aa1ae';
-  ctx.font = '10px Inter, sans-serif';
-  ctx.fillText('total', cx, cy + 18);
-}
-
-/* ---------- Render: analytics + recurring ---------- */
-function renderAnalytics(){
-  const { cats } = totals();
-  const sorted = Object.entries(cats).sort((a,b) => b[1] - a[1]);
-  const holder = $('#analyticsSummary');
-  holder.innerHTML = `
-    <div class="app-card">
-      <h3 style="font-size:12px">Category totals</h3>
-      <div style="display:grid;gap:7px;margin-top:10px">
-        ${sorted.length
-          ? sorted.map(([k,v]) => `<div style="display:flex;justify-content:space-between;font-size:10px"><span>${escapeHtml(k)}</span><b>${money(v)}</b></div>`).join('')
-          : '<span class="muted" style="font-size:10px">No expense data yet.</span>'}
-      </div>
-    </div>
-    <div class="app-card">
-      <h3 style="font-size:12px">Current month</h3>
-      <div style="font-size:25px;font-weight:900;margin-top:7px">${money(todayExpenses().reduce((s,e) => s + e.amount, 0))}</div>
-      <div style="font-size:9px;color:#9299a8;margin-top:2px">${todayExpenses().length} transaction(s)</div>
-    </div>`;
-}
-
-function renderRecurring(){
-  const el = $('#recurringList');
-  if (!state.recurring.length){
-    el.innerHTML = '<div class="empty-state">No recurring expenses yet. Add hostel, subscription, rent, tuition or another repeat expense.</div>';
-    return;
+  // Sync bottom nav active state
+  var bnavs = document.querySelectorAll('.nav-btn');
+  for (var k = 0; k < bnavs.length; k++) {
+    if (bnavs[k].getAttribute('data-tab') === name) bnavs[k].classList.add('active');
+    else bnavs[k].classList.remove('active');
   }
-  el.innerHTML = state.recurring.map(r => `
-    <div class="recurring-row">
-      <div>
-        <b>${escapeHtml(r.description)}</b>
-        <small>${money(r.amount)} · ${escapeHtml(r.category)} · ${r.frequency} · next ${escapeHtml(r.nextDate)}</small>
-      </div>
-      <div class="r-right">
-        <input class="switch" type="checkbox" data-toggle-rec="${r.id}" ${r.active ? 'checked' : ''}>
-        <button class="btn btn-danger btn-sm" data-del-rec="${r.id}">Delete</button>
-      </div>
-    </div>`).join('');
+
+  try { localStorage.setItem(PAGE_KEY, name); } catch (e) {}
+
+  closeSidebar();
+  window.scrollTo(0, 0);
+
+  // Re-render charts when overview becomes visible
+  if (name === 'overview') {
+    setTimeout(renderCharts, 120);
+  }
+  if (name === 'budget') {
+    renderBudget();
+    renderCategoryLimits();
+  }
 }
 
-function renderAll(){
-  renderFilters();
-  renderStats();
-  renderTable();
-  drawTrend();
-  drawDonut();
-  renderAnalytics();
-  renderRecurring();
+function scrollToFeatures() {
+  var el = $('features');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
+window.scrollToFeatures = scrollToFeatures;
+window.goToPage = goToPage;
 
-/* ---------- CRUD ---------- */
-function addExpense(data){
-  state.expenses.push({
-    id: uid(),
-    amount: Number(data.amount),
-    category: data.category,
-    date: data.date,
-    paymentMethod: data.paymentMethod,
-    description: data.description || '—',
-    source: data.source || 'manual'
-  });
-  persist();
-  renderAll();
-}
+/* ============================================================
+   CRUD — Expenses
+   ============================================================ */
+function handleSubmit(e) {
+  e.preventDefault();
 
-function updateExpense(id, data){
-  const x = state.expenses.find(e => e.id === id);
-  if (!x) return;
-  Object.assign(x, {
-    amount: Number(data.amount),
-    category: data.category,
-    date: data.date,
-    paymentMethod: data.paymentMethod,
-    description: data.description || '—'
-  });
-  persist();
-  renderAll();
-}
+  var payload = {
+    amount: parseFloat($('amount').value),
+    category: $('category').value,
+    date: $('date').value,
+    paymentMethod: $('payment').value,
+    description: $('description').value.trim() || '—'
+  };
 
-function startEdit(id){
-  const e = state.expenses.find(x => x.id === id);
-  if (!e) return;
-  state.editId = id;
-  $('#expenseModalTitle').textContent = 'Edit Expense';
-  $('#fAmount').value = e.amount;
-  $('#fCategory').value = e.category;
-  $('#fDate').value = e.date;
-  $('#fPayment').value = e.paymentMethod;
-  $('#fDescription').value = e.description === '—' ? '' : e.description;
-  openModal('expenseModal');
-}
+  if (!payload.amount || payload.amount <= 0) return;
 
-function deleteExpense(id){
-  if (!confirm('Delete this expense?')) return;
-  state.expenses = state.expenses.filter(e => e.id !== id);
-  persist();
-  renderAll();
-  toast('Expense deleted');
-}
-
-/* ---------- Recurring ---------- */
-function processRecurring(){
-  const today = isoToday();
-  let changed = false;
-  state.recurring.forEach(r => {
-    if (!r.active) return;
-    let guard = 0;
-    while (r.nextDate <= today && guard < 36){
-      const duplicate = state.expenses.some(e => e.recurringId === r.id && e.date === r.nextDate);
-      if (!duplicate){
-        state.expenses.push({
-          id: uid(),
-          amount: Number(r.amount),
-          category: r.category,
-          date: r.nextDate,
-          paymentMethod: r.paymentMethod,
-          description: r.description,
-          source: 'recurring',
-          recurringId: r.id
-        });
+  if (editingId) {
+    for (var i = 0; i < expenses.length; i++) {
+      if (expenses[i].id === editingId) {
+        expenses[i].amount = payload.amount;
+        expenses[i].category = payload.category;
+        expenses[i].date = payload.date;
+        expenses[i].paymentMethod = payload.paymentMethod;
+        expenses[i].description = payload.description;
+        break;
       }
-      const d = new Date(r.nextDate + 'T00:00:00');
-      if (r.frequency === 'weekly') d.setDate(d.getDate() + 7);
-      else                          d.setMonth(d.getMonth() + 1);
-      r.nextDate = d.toISOString().slice(0,10);
-      guard++;
-      changed = true;
     }
-  });
-  if (changed) persist();
-}
-
-function nextDate(date, frequency){
-  const d = new Date(date + 'T00:00:00');
-  if (frequency === 'weekly') d.setDate(d.getDate() + 7);
-  else                        d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0,10);
-}
-
-/* ---------- Demo data ---------- */
-function loadDemo(){
-  if (state.expenses.length && !confirm('Replace current expenses with demo data?')) return;
-  const days = [0,1,2,4,7,11,14,18,21,26].map(x => {
-    const z = new Date();
-    z.setDate(z.getDate() - x);
-    return z.toISOString().slice(0,10);
-  });
-  const sample = [
-    ['Canteen lunch','Food',80,'UPI'],
-    ['Metro recharge','Transport',300,'Card'],
-    ['Notebook','Books',220,'UPI'],
-    ['Xerox','Stationery',60,'Cash'],
-    ['Hostel mess','Hostel',1200,'UPI'],
-    ['Movie','Entertainment',350,'UPI'],
-    ['Paracetamol','Medical',90,'Cash'],
-    ['Coffee','Food',140,'UPI'],
-    ['Online course','Tuition',800,'Card'],
-    ['Music subscription','Subscriptions',129,'Card']
-  ];
-  state.expenses = sample.map((s,i) => ({
-    id: uid() + i,
-    description: s[0], category: s[1], amount: s[2],
-    paymentMethod: s[3], date: days[i], source: 'demo'
-  }));
-  if (!state.budget) state.budget = 5000;
-  persist();
-  renderAll();
-  toast('Demo data loaded');
-}
-
-/* ---------- Export / Import ---------- */
-function csvEscape(v){ return '"' + String(v??'').replace(/"/g,'""') + '"'; }
-
-function exportCsv(){
-  const rows = getFiltered();
-  if (!rows.length) return toast('Nothing to export');
-  const out = [
-    ['Date','Category','Description','Payment Method','Amount'],
-    ...rows.map(e => [e.date, e.category, e.description, e.paymentMethod, e.amount])
-  ].map(r => r.map(csvEscape).join(',')).join('\n');
-
-  const blob = new Blob([out], { type: 'text/csv;charset=utf-8' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href = url;
-  a.download = 'campusspend_expenses_' + isoToday() + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-  toast('CSV exported');
-}
-
-function parseCsv(text){
-  const rows = [];
-  let row = [], cell = '', quoted = false;
-  for (let i = 0; i < text.length; i++){
-    const ch = text[i], next = text[i+1];
-    if (ch === '"' && quoted && next === '"'){ cell += '"'; i++; continue; }
-    if (ch === '"'){ quoted = !quoted; continue; }
-    if (ch === ',' && !quoted){ row.push(cell); cell = ''; continue; }
-    if ((ch === '\n' || ch === '\r') && !quoted){
-      if (ch === '\r' && next === '\n') i++;
-      row.push(cell);
-      cell = '';
-      if (row.some(x => x.trim() !== '')) rows.push(row);
-      row = [];
-      continue;
-    }
-    cell += ch;
+    exitEditMode();
+  } else {
+    payload.id = uid();
+    expenses.push(payload);
   }
-  if (cell !== '' || row.length){ row.push(cell); rows.push(row); }
+
+  saveData();
+  resetForm();
+  renderAll();
+  checkLimit(payload.category);
+}
+
+function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  expenses = expenses.filter(function (x) { return x.id !== id; });
+  saveData();
+  if (editingId === id) exitEditMode();
+  renderAll();
+}
+
+function startEdit(id) {
+  var exp = null;
+  for (var i = 0; i < expenses.length; i++) {
+    if (expenses[i].id === id) { exp = expenses[i]; break; }
+  }
+  if (!exp) return;
+
+  editingId = id;
+  if ($('amount')) $('amount').value = exp.amount;
+  if ($('category')) $('category').value = exp.category;
+  if ($('date')) $('date').value = exp.date;
+  if ($('payment')) $('payment').value = exp.paymentMethod;
+  if ($('description')) $('description').value = exp.description === '—' ? '' : exp.description;
+
+  if ($('formTitle')) $('formTitle').textContent = 'Edit Expense';
+  if ($('submitBtn')) $('submitBtn').textContent = 'Update Expense';
+  if ($('cancelEditBtn')) $('cancelEditBtn').style.display = 'inline-block';
+
+  goToPage('transactions');
+}
+
+function exitEditMode() {
+  editingId = null;
+  if ($('formTitle')) $('formTitle').textContent = 'Add Expense';
+  if ($('submitBtn')) $('submitBtn').textContent = 'Add Expense';
+  if ($('cancelEditBtn')) $('cancelEditBtn').style.display = 'none';
+  resetForm();
+}
+
+function resetForm() {
+  if ($('expenseForm')) $('expenseForm').reset();
+  if ($('date')) $('date').value = todayISO();
+}
+
+function checkLimit(category) {
+  var limits = loadJSON(LIMITS_KEY, {});
+  if (!limits[category]) return;
+
+  var mk = monthKey(todayISO());
+  var spent = 0;
+  for (var i = 0; i < expenses.length; i++) {
+    if (expenses[i].category === category && monthKey(expenses[i].date) === mk) {
+      spent += expenses[i].amount;
+    }
+  }
+
+  if (spent > limits[category]) {
+    setTimeout(function () {
+      alert('⚠️ "' + category + '" limit cross!\nLimit: ' + fmt(limits[category]) +
+            '\nSpent: ' + fmt(spent));
+    }, 300);
+  }
+}
+
+/* ============================================================
+   FILTERING
+   ============================================================ */
+function getFiltered() {
+  var cat = $('filterCategory') ? $('filterCategory').value : 'all';
+  var mon = $('filterMonth') ? $('filterMonth').value : 'all';
+  var q = $('searchInput') ? $('searchInput').value.trim().toLowerCase() : '';
+
+  var rows = expenses.filter(function (e) {
+    if (cat !== 'all' && e.category !== cat) return false;
+    if (mon !== 'all' && monthKey(e.date) !== mon) return false;
+    if (q && e.description.toLowerCase().indexOf(q) === -1) return false;
+    return true;
+  });
+
+  rows.sort(function (a, b) {
+    if (a.date < b.date) return 1;
+    if (a.date > b.date) return -1;
+    return 0;
+  });
+
   return rows;
 }
 
-function findHeader(headers, terms){
-  const lower = headers.map(x => x.toLowerCase().trim());
-  for (const term of terms){
-    const idx = lower.findIndex(h => h === term || h.includes(term));
-    if (idx >= 0) return idx;
+/* ============================================================
+   RENDER: STATS
+   ============================================================ */
+function renderStats() {
+  var total = 0;
+  var byCat = {};
+  var mk = monthKey(todayISO());
+  var monthTotal = 0;
+
+  for (var i = 0; i < expenses.length; i++) {
+    var e = expenses[i];
+    total += e.amount;
+    byCat[e.category] = (byCat[e.category] || 0) + e.amount;
+    if (monthKey(e.date) === mk) monthTotal += e.amount;
   }
-  return -1;
+
+  var top = '—', topAmt = 0;
+  for (var k in byCat) {
+    if (byCat[k] > topAmt) { topAmt = byCat[k]; top = k; }
+  }
+
+  if ($('totalSpent')) $('totalSpent').textContent = fmt(total);
+  if ($('monthSpent')) $('monthSpent').textContent = fmt(monthTotal);
+  if ($('topCategory')) $('topCategory').textContent = top;
+  if ($('txnCount')) $('txnCount').textContent = expenses.length;
+
+  renderBudget(monthTotal);
 }
 
-function guessCategory(text){
-  const s = text.toLowerCase();
-  if (/swiggy|zomato|canteen|food|restaurant|coffee|cafe|pizza|snack/.test(s)) return 'Food';
-  if (/uber|ola|metro|bus|auto|rapido|travel|cab/.test(s)) return 'Transport';
-  if (/book|amazon|flipkart|novel|textbook/.test(s)) return 'Books';
-  if (/xerox|print|stationery|pen|notebook/.test(s)) return 'Stationery';
-  if (/hostel|mess|rent|pg/.test(s)) return 'Hostel';
-  if (/course|tuition|college|fee|exam/.test(s)) return 'Tuition';
-  if (/movie|netflix|spotify|game|concert/.test(s)) return /spotify|netflix/.test(s) ? 'Subscriptions' : 'Entertainment';
-  if (/pharmacy|medical|doctor|medicine/.test(s)) return 'Medical';
-  if (/subscription|prime|youtube premium/.test(s)) return 'Subscriptions';
+function renderBudget(monthTotal) {
+  if (monthTotal === undefined) {
+    monthTotal = 0;
+    var mk = monthKey(todayISO());
+    for (var i = 0; i < expenses.length; i++) {
+      if (monthKey(expenses[i].date) === mk) monthTotal += expenses[i].amount;
+    }
+  }
+
+  if ($('budgetInput')) $('budgetInput').value = monthlyBudget || '';
+
+  var bar = $('budgetBar');
+  var text = $('budgetText');
+  if (!bar || !text) return;
+
+  if (!monthlyBudget) {
+    bar.style.width = '0%';
+    text.textContent = 'No budget set.';
+    return;
+  }
+
+  var pct = Math.min((monthTotal / monthlyBudget) * 100, 100);
+  bar.style.width = pct + '%';
+  bar.style.background = pct < 70 ? '#10b981' : pct < 100 ? '#f59e0b' : '#ef4444';
+
+  var left = monthlyBudget - monthTotal;
+  text.textContent = left >= 0
+    ? fmt(monthTotal) + ' of ' + fmt(monthlyBudget) + ' used · ' + fmt(left) + ' left'
+    : fmt(monthTotal) + ' of ' + fmt(monthlyBudget) + ' used · Over by ' + fmt(-left);
+}
+
+/* ============================================================
+   RENDER: CHARTS
+   ============================================================ */
+function renderCharts() {
+  if (typeof Chart === 'undefined') return;
+
+  var catCanvas = $('categoryChart');
+  var trendCanvas = $('trendChart');
+  if (!catCanvas || !trendCanvas) return;
+
+  // Skip if overview page is not visible
+  var overview = $('page-overview');
+  if (!overview || !overview.classList.contains('active')) return;
+
+  // Skip if canvas has no size
+  var rect = catCanvas.parentElement.getBoundingClientRect();
+  if (rect.width < 10 || rect.height < 10) {
+    setTimeout(renderCharts, 150);
+    return;
+  }
+
+  // ---------- Doughnut ----------
+  var byCat = {};
+  for (var i = 0; i < expenses.length; i++) {
+    var c = expenses[i].category;
+    byCat[c] = (byCat[c] || 0) + expenses[i].amount;
+  }
+
+  var labels = Object.keys(byCat);
+  var values = labels.map(function (k) { return byCat[k]; });
+  var colors = labels.map(function (k) { return CATEGORY_COLORS[k] || '#94a3b8'; });
+
+  try {
+    if (categoryChart) { categoryChart.destroy(); categoryChart = null; }
+    categoryChart = new Chart(catCanvas, {
+      type: 'doughnut',
+      data: {
+        labels: labels.length ? labels : ['No data'],
+        datasets: [{
+          data: values.length ? values : [1],
+          backgroundColor: colors.length ? colors : ['#e2e8f0'],
+          borderWidth: 2,
+          borderColor: '#fff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '60%',
+        animation: false,
+        plugins: {
+          legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Doughnut chart skipped:', err.message);
+  }
+
+  // ---------- 6-month bar ----------
+  var months = [];
+  var now = new Date();
+  for (var j = 5; j >= 0; j--) {
+    var d = new Date(now.getFullYear(), now.getMonth() - j, 1);
+    months.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+  }
+
+  var monthTotals = months.map(function (m) {
+    var sum = 0;
+    for (var k = 0; k < expenses.length; k++) {
+      if (monthKey(expenses[k].date) === m) sum += expenses[k].amount;
+    }
+    return sum;
+  });
+
+  try {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    trendChart = new Chart(trendCanvas, {
+      type: 'bar',
+      data: {
+        labels: months.map(monthLabel),
+        datasets: [{
+          label: 'Spent',
+          data: monthTotals,
+          backgroundColor: '#4f46e5',
+          borderRadius: 8,
+          maxBarThickness: 52
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  } catch (err) {
+    console.warn('Trend chart skipped:', err.message);
+  }
+}
+
+/* ============================================================
+   RENDER: TABLE + FILTERS
+   ============================================================ */
+function renderTable() {
+  var tbody = $('tableBody');
+  if (!tbody) return;
+
+  var rows = getFiltered();
+  tbody.innerHTML = '';
+  if ($('emptyState')) $('emptyState').style.display = rows.length ? 'none' : 'block';
+
+  for (var i = 0; i < rows.length; i++) {
+    var e = rows[i];
+    var color = CATEGORY_COLORS[e.category] || '#64748b';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>' + formatDate(e.date) + '</td>' +
+      '<td><span class="badge" style="background:' + color + '22;color:' + color + '">' +
+        escapeHtml(e.category) + '</span></td>' +
+      '<td>' + escapeHtml(e.description) + '</td>' +
+      '<td>' + escapeHtml(e.paymentMethod) + '</td>' +
+      '<td class="right amount">' + fmt(e.amount) + '</td>' +
+      '<td class="right">' +
+        '<button class="btn-ghost" style="padding:4px 10px;font-size:0.75rem;" ' +
+          'data-edit="' + e.id + '">Edit</button> ' +
+        '<button class="btn-danger" style="padding:4px 10px;font-size:0.75rem;" ' +
+          'data-del="' + e.id + '">Delete</button>' +
+      '</td>';
+    tbody.appendChild(tr);
+  }
+}
+
+function renderFilterOptions() {
+  var catSel = $('filterCategory');
+  var monSel = $('filterMonth');
+  if (!catSel || !monSel) return;
+
+  var curCat = catSel.value;
+  var curMon = monSel.value;
+
+  var cats = [], mons = [];
+  for (var i = 0; i < expenses.length; i++) {
+    if (cats.indexOf(expenses[i].category) === -1) cats.push(expenses[i].category);
+    var mk = monthKey(expenses[i].date);
+    if (mons.indexOf(mk) === -1) mons.push(mk);
+  }
+  cats.sort();
+  mons.sort().reverse();
+
+  var catHTML = '<option value="all">All Categories</option>';
+  for (var a = 0; a < cats.length; a++) {
+    catHTML += '<option value="' + escapeHtml(cats[a]) + '">' + escapeHtml(cats[a]) + '</option>';
+  }
+  catSel.innerHTML = catHTML;
+  catSel.value = cats.indexOf(curCat) > -1 ? curCat : 'all';
+
+  var monHTML = '<option value="all">All Months</option>';
+  for (var b = 0; b < mons.length; b++) {
+    monHTML += '<option value="' + mons[b] + '">' + monthLabel(mons[b]) + '</option>';
+  }
+  monSel.innerHTML = monHTML;
+  monSel.value = mons.indexOf(curMon) > -1 ? curMon : 'all';
+}
+
+/* ============================================================
+   EXPORT CSV
+   ============================================================ */
+function exportCSV() {
+  var rows = getFiltered();
+  if (!rows.length) { alert('Nothing to export.'); return; }
+
+  var lines = ['Date,Category,Description,Payment,Amount'];
+  for (var i = 0; i < rows.length; i++) {
+    var e = rows[i];
+    lines.push([
+      e.date,
+      e.category,
+      '"' + String(e.description).replace(/"/g, '""') + '"',
+      e.paymentMethod,
+      e.amount
+    ].join(','));
+  }
+
+  var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'campusespend_' + todayISO() + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   MASTER RENDER
+   ============================================================ */
+function renderAll() {
+  renderStats();
+  renderFilterOptions();
+  renderTable();
+
+  var overview = $('page-overview');
+  if (overview && overview.classList.contains('active')) {
+    setTimeout(renderCharts, 60);
+  }
+}
+
+/* ============================================================
+   CATEGORY LIMITS
+   ============================================================ */
+function renderCategoryLimits() {
+  var wrap = $('catLimits');
+  if (!wrap) return;
+
+  var cats = Object.keys(CATEGORY_COLORS);
+  var limits = loadJSON(LIMITS_KEY, {});
+
+  var html = '';
+  for (var i = 0; i < cats.length; i++) {
+    var c = cats[i];
+    var color = CATEGORY_COLORS[c];
+    html +=
+      '<div class="cat-limit-row">' +
+        '<span class="badge" style="background:' + color + '22;color:' + color + '">' +
+          c + '</span>' +
+        '<input type="number" min="0" placeholder="No limit" ' +
+          'data-cat="' + c + '" value="' + (limits[c] || '') + '">' +
+      '</div>';
+  }
+  wrap.innerHTML = html;
+
+  var inputs = wrap.querySelectorAll('input');
+  for (var j = 0; j < inputs.length; j++) {
+    inputs[j].addEventListener('change', function () {
+      var val = Number(this.value);
+      var lims = loadJSON(LIMITS_KEY, {});
+      if (val > 0) lims[this.getAttribute('data-cat')] = val;
+      else delete lims[this.getAttribute('data-cat')];
+      saveJSON(LIMITS_KEY, lims);
+    });
+  }
+}
+
+
+
+/* ============================================================
+   ACCOUNT
+   ============================================================ */
+function renderAccount() {
+  var a = loadJSON(ACCOUNT_KEY, {});
+  if ($('accName'))  $('accName').textContent  = a.name  || 'Student Name';
+  if ($('accEmail')) $('accEmail').textContent = a.email || 'student@college.edu';
+  if ($('accSince')) $('accSince').textContent = a.since ? 'Member since ' + a.since : 'Member since —';
+  if ($('sidebarUser')) $('sidebarUser').textContent = a.name || 'Student';
+  if ($('inpName'))    $('inpName').value    = a.name    || '';
+  if ($('inpEmail'))   $('inpEmail').value   = a.email   || '';
+  if ($('inpCollege')) $('inpCollege').value = a.college || '';
+  if ($('inpPhone'))   $('inpPhone').value   = a.phone   || '';
+}
+
+function bindAccountForm() {
+  if (!$('accountForm')) return;
+  $('accountForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = loadJSON(ACCOUNT_KEY, {});
+    a.name    = $('inpName').value.trim();
+    a.email   = $('inpEmail').value.trim();
+    a.college = $('inpCollege').value.trim();
+    a.phone   = $('inpPhone').value.trim();
+    a.since   = a.since || todayISO();
+    saveJSON(ACCOUNT_KEY, a);
+    renderAccount();
+    alert('Details saved ✓');
+  });
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function applySettings() {
+  var s = loadJSON(SETTINGS_KEY, {});
+  if (s.dark) document.body.classList.add('dark');
+  else document.body.classList.remove('dark');
+
+  if ($('setCurrency')) $('setCurrency').value = s.currency || '₹';
+  if ($('setDateFmt'))  $('setDateFmt').value  = s.dateFmt  || 'iso';
+  if ($('setDark'))     $('setDark').checked   = !!s.dark;
+}
+
+function bindSettings() {
+  if ($('setCurrency')) {
+    $('setCurrency').addEventListener('change', function () {
+      var s = loadJSON(SETTINGS_KEY, {});
+      s.currency = this.value;
+      saveJSON(SETTINGS_KEY, s);
+      renderAll();
+    });
+  }
+
+  if ($('setDateFmt')) {
+    $('setDateFmt').addEventListener('change', function () {
+      var s = loadJSON(SETTINGS_KEY, {});
+      s.dateFmt = this.value;
+      saveJSON(SETTINGS_KEY, s);
+      renderTable();
+    });
+  }
+
+  if ($('setDark')) {
+    $('setDark').addEventListener('change', function () {
+      var s = loadJSON(SETTINGS_KEY, {});
+      s.dark = this.checked;
+      saveJSON(SETTINGS_KEY, s);
+      applySettings();
+      renderCharts();
+    });
+  }
+
+  if ($('backupBtn')) {
+    $('backupBtn').addEventListener('click', function () {
+      var data = {
+        expenses: expenses,
+        budget: monthlyBudget,
+        account: loadJSON(ACCOUNT_KEY, {}),
+        settings: loadJSON(SETTINGS_KEY, {}),
+        limits: loadJSON(LIMITS_KEY, {}),
+        exported: new Date().toISOString()
+      };
+      var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'campusespend_backup_' + todayISO() + '.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if ($('restoreBtn') && $('restoreInput')) {
+    $('restoreBtn').addEventListener('click', function () { $('restoreInput').click(); });
+    $('restoreInput').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        try {
+          var d = JSON.parse(ev.target.result);
+          if (d.expenses) { expenses = d.expenses; saveData(); }
+          if (d.budget != null) { monthlyBudget = d.budget; saveBudget(); }
+          if (d.account)  saveJSON(ACCOUNT_KEY, d.account);
+          if (d.settings) saveJSON(SETTINGS_KEY, d.settings);
+          if (d.limits)   saveJSON(LIMITS_KEY, d.limits);
+          applySettings();
+          renderAll();
+          renderAccount();
+          renderCategoryLimits();
+          alert('Backup restored ✓');
+        } catch (err) { alert('Invalid backup file.'); }
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  if ($('resetBtn')) {
+    $('resetBtn').addEventListener('click', function () {
+      if (!confirm('Sab data delete ho jayega. Sure?')) return;
+      localStorage.clear();
+      location.reload();
+    });
+  }
+}
+
+/* ============================================================
+   ADD MODAL — Categories + Amount
+   ============================================================ */
+var CATEGORIES = [
+  { name: 'Shopping',       icon: 'cart' },
+  { name: 'Food',           icon: 'utensils' },
+  { name: 'Phone',          icon: 'phone' },
+  { name: 'Entertainment',  icon: 'gamepad' },
+  { name: 'Education',      icon: 'gradcap' },
+  { name: 'Beauty',         icon: 'scissors' },
+  { name: 'Sports',         icon: 'runner' },
+  { name: 'Social',         icon: 'users' },
+  { name: 'Transportation', icon: 'bus' },
+  { name: 'Clothing',       icon: 'shirt' },
+  { name: 'Car',            icon: 'car' },
+  { name: 'Alcohol',        icon: 'wine' },
+  { name: 'Electronics',    icon: 'monitor' },
+  { name: 'Cigarettes',     icon: 'cig' },
+  { name: 'Travel',         icon: 'plane' },
+  { name: 'Health',         icon: 'heart' },
+  { name: 'Pets',           icon: 'paw' },
+  { name: 'Repairs',        icon: 'wrench' },
+  { name: 'Housing',        icon: 'house' },
+  { name: 'Home',           icon: 'sofa' },
+  { name: 'Gifts',          icon: 'gift' },
+  { name: 'Donations',      icon: 'hands' },
+  { name: 'Lottery',        icon: 'dice' },
+  { name: 'Snacks',         icon: 'popcorn' },
+  { name: 'Kids',           icon: 'baby' },
+  { name: 'Vegetables',     icon: 'carrot' },
+  { name: 'Fruits',         icon: 'apple' },
+  { name: 'Settings',       icon: 'plus' }
+];
+
+var ICONS = {
+  cart:      '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+  utensils:  '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3z"/><path d="M21 15v7"/>',
+  phone:     '<rect x="7" y="2" width="10" height="20" rx="2"/>',
+  gamepad:   '<line x1="6" y1="11" x2="10" y2="11"/><line x1="8" y1="9" x2="8" y2="13"/><line x1="15" y1="12" x2="15.01" y2="12"/><line x1="18" y1="10" x2="18.01" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+  gradcap:   '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>',
+  scissors:  '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',
+  runner:    '<circle cx="13" cy="4" r="1"/><path d="M4 17l5-3 2-4 3 3 4-2"/><path d="M16 21l-3-6"/>',
+  users:     '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  bus:       '<path d="M8 6v6M15 6v6M2 12h19.6M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>',
+  shirt:     '<path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"/>',
+  car:       '<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+  wine:      '<path d="M8 22h8M12 11v11M19 3H5l1 7a6 6 0 0 0 12 0z"/>',
+  monitor:   '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+  cig:       '<path d="M18 12H2v4h16zM22 12v4M18 8c0-2.5-2-2.5-2-5M22 8c0-2.5-2-2.5-2-5"/>',
+  plane:     '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
+  heart:     '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+  paw:       '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 0 1 5.5 10Z"/>',
+  wrench:    '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+  house:     '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>',
+  sofa:      '<path d="M20 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v3"/><path d="M2 11v5a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a2 2 0 0 0-4 0v2H6v-2a2 2 0 0 0-4 0z"/><path d="M4 18v2M20 18v2"/>',
+  gift:      '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+  hands:     '<path d="M11 14h2a2 2 0 1 0 0-4h-3c-.6 0-1.1.2-1.4.6L3 16"/><path d="m7 20 1.6-1.4c.3-.4.8-.6 1.4-.6h4c1.1 0 2.1-.4 2.8-1.2l4.6-4.4a2 2 0 0 0-2.75-2.91l-4.2 3.9"/><path d="m2 15 6 6"/>',
+  dice:      '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/>',
+  popcorn:   '<path d="M18 8a2 2 0 0 0 0-4 2 2 0 0 0-2-2 2 2 0 0 0-4 0 2 2 0 0 0-4 0 2 2 0 0 0-2 2 2 2 0 0 0 0 4v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2z"/><path d="M6 8h12"/>',
+  baby:      '<path d="M9 12h.01M15 12h.01M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5"/><circle cx="12" cy="12" r="10"/>',
+  carrot:    '<path d="M2.27 21.7s9.87-3.5 12.73-6.36a4.5 4.5 0 0 0-6.36-6.37C5.77 11.84 2.27 21.7 2.27 21.7z"/><path d="M8.64 15.36 5 19"/>',
+  apple:     '<path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06z"/><path d="M10 2c1 .5 2 2 2 5"/>',
+  plus:      '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
+};
+
+function svgIcon(paths) {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+         'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+         paths + '</svg>';
+}
+
+function renderCategoryGrid() {
+  var grid = $('catGrid');
+  if (!grid) return;
+
+  var html = '';
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    var c = CATEGORIES[i];
+    html += '<button type="button" class="cat-item" data-cat="' + c.name + '">' +
+              '<div class="cat-icon">' + svgIcon(ICONS[c.icon] || ICONS.plus) + '</div>' +
+              '<div class="cat-name">' + c.name + '</div>' +
+            '</button>';
+  }
+  grid.innerHTML = html;
+
+  var items = grid.querySelectorAll('.cat-item');
+  for (var j = 0; j < items.length; j++) {
+    items[j].addEventListener('click', function () {
+      var cat = this.getAttribute('data-cat');
+      if (cat === 'Settings') {
+        closeAddModal();
+        goToPage('settings');
+        return;
+      }
+      selectedCategory = cat;
+      if ($('amountForm')) $('amountForm').classList.add('show');
+      if ($('txnAmount')) $('txnAmount').focus();
+    });
+  }
+}
+
+function openAddModal() {
+  if (!$('addModal')) return;
+  $('addModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  selectedCategory = null;
+  if ($('amountForm')) $('amountForm').classList.remove('show');
+  if ($('txnAmount')) $('txnAmount').value = '';
+  if ($('txnNote')) $('txnNote').value = '';
+
+  // Reset type tabs
+  var tabs = document.querySelectorAll('.type-tab');
+  for (var i = 0; i < tabs.length; i++) {
+    if (tabs[i].getAttribute('data-type') === 'expense') tabs[i].classList.add('active');
+    else tabs[i].classList.remove('active');
+  }
+  currentType = 'expense';
+}
+
+function closeAddModal() {
+  if (!$('addModal')) return;
+  $('addModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function saveTransaction() {
+  var amtInput = $('txnAmount');
+  if (!amtInput) return;
+
+  var amt = parseFloat(amtInput.value);
+  if (!amt || amt <= 0) {
+    alert('Amount daalo');
+    amtInput.focus();
+    return;
+  }
+  if (!selectedCategory) {
+    alert('Category select karo');
+    return;
+  }
+
+  var note = ($('txnNote') && $('txnNote').value.trim()) || selectedCategory;
+
+  var txn = {
+    id: uid(),
+    amount: amt,
+    category: selectedCategory,
+    type: currentType,
+    date: todayISO(),
+    paymentMethod: 'Cash',
+    description: note
+  };
+
+  expenses.push(txn);
+  saveData();
+  renderAll();
+  checkLimit(txn.category);
+  closeAddModal();
+
+  // Small confirmation
+  var toast = document.createElement('div');
+  toast.style.cssText =
+    'position:fixed;bottom:90px;left:50%;transform:translateX(-50%);' +
+    'background:#10b981;color:#fff;padding:12px 22px;border-radius:10px;' +
+    'font-size:14px;font-weight:600;z-index:999;box-shadow:0 4px 18px rgba(0,0,0,0.2);';
+  toast.textContent = '✓ ' + selectedCategory + ' — ' + fmt(amt);
+  document.body.appendChild(toast);
+  setTimeout(function () { toast.remove(); }, 1800);
+}
+
+/* ============================================================
+   NAV BINDING
+   ============================================================ */
+function bindNavigation() {
+  if ($('menuBtn'))      $('menuBtn').addEventListener('click', openSidebar);
+  if ($('closeMenuBtn')) $('closeMenuBtn').addEventListener('click', closeSidebar);
+  if ($('backdrop'))     $('backdrop').addEventListener('click', closeSidebar);
+
+  // Sidebar nav items
+  var navs = document.querySelectorAll('.nav-item');
+  for (var i = 0; i < navs.length; i++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        goToPage(btn.getAttribute('data-page'));
+      });
+    })(navs[i]);
+  }
+
+  // Bottom nav buttons
+  var bnavs = document.querySelectorAll('.nav-btn');
+  for (var j = 0; j < bnavs.length; j++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-tab');
+        if (tab) goToPage(tab);
+      });
+    })(bnavs[j]);
+  }
+
+  // + button in bottom nav
+  if ($('navAddBtn')) $('navAddBtn').addEventListener('click', openAddModal);
+
+  // Modal cancel
+  if ($('cancelAddBtn')) $('cancelAddBtn').addEventListener('click', closeAddModal);
+
+  // Type tabs
+  var tabs = document.querySelectorAll('.type-tab');
+  for (var k = 0; k < tabs.length; k++) {
+    (function (tab) {
+      tab.addEventListener('click', function () {
+        for (var m = 0; m < tabs.length; m++) tabs[m].classList.remove('active');
+        tab.classList.add('active');
+        currentType = tab.getAttribute('data-type');
+      });
+    })(tabs[k]);
+  }
+
+  // Save txn button
+  if ($('saveTxnBtn')) $('saveTxnBtn').addEventListener('click', saveTransaction);
+
+  // Enter on amount saves
+  if ($('txnAmount')) {
+    $('txnAmount').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveTransaction(); }
+    });
+  }
+
+  // Esc closes modal / sidebar
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      closeSidebar();
+      closeAddModal();
+    }
+  });
+}
+
+/* ============================================================
+   SERVICE WORKER CLEANUP (dev helper)
+   ============================================================ */
+function cleanupServiceWorkers() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      if (regs.length) {
+        console.log('⚠️ Service Workers found. Unregistering for dev…');
+        regs.forEach(function (r) { r.unregister(); });
+      }
+    });
+  }
+}
+/* ============================================================
+   QUICK ADD (UPDATED: Fix "Added" bug, Add Scroll & Customise)
+   ============================================================ */
+var DEFAULT_QUICK_PRESETS = [
+  { label: 'Chai ₹10',  amt: 10, cat: 'Snacks',         desc: 'Chai' },
+  { label: 'Lunch ₹60', amt: 60, cat: 'Food',           desc: 'Lunch' },
+  { label: 'Auto ₹30',  amt: 30, cat: 'Transportation', desc: 'Auto' },
+  { label: 'Xerox ₹5',  amt: 5,  cat: 'Education',      desc: 'Xerox' },
+  { label: 'Metro ₹25', amt: 25, cat: 'Transportation', desc: 'Metro' },
+  { label: 'Water ₹20', amt: 20, cat: 'Food',           desc: 'Water' }
+];
+
+function renderQuickGrid() {
+  var grid = $('quickGrid');
+  if (!grid) return;
+
+  var presets = DEFAULT_QUICK_PRESETS;
+  try {
+    var saved = JSON.parse(localStorage.getItem('cs_quick_presets'));
+    if (saved && saved.length) presets = saved;
+  } catch (e) {}
+
+  var html = '';
+  for (var i = 0; i < presets.length; i++) {
+    var p = presets[i];
+    html += '<button type="button" class="quick-btn" ' +
+              'data-amt="' + p.amt + '" ' +
+              'data-cat="' + escapeHtml(p.cat) + '" ' +
+              'data-desc="' + escapeHtml(p.desc) + '">' +
+              escapeHtml(p.label) +
+            '</button>';
+  }
+  grid.innerHTML = html;
+
+  bindQuickAdd();
+  setTimeout(checkQuickScroll, 100);
+}
+
+function bindQuickAdd() {
+  var btns = document.querySelectorAll('.quick-btn');
+  for (var i = 0; i < btns.length; i++) {
+    (function (btn) {
+      btn.addEventListener('click', function () {
+        var e = {
+          id: uid(),
+          amount: Number(btn.getAttribute('data-amt')),
+          category: btn.getAttribute('data-cat'),
+          date: todayISO(),
+          paymentMethod: 'Cash',
+          description: btn.getAttribute('data-desc')
+        };
+        expenses.push(e);
+        saveData();
+        renderAll();
+        checkLimit(e.category);
+
+        // FIX: Sirf toast dikhao, button text change mat karo
+        toast('✅ Added ' + e.description + ' ' + fmt(e.amount));
+      });
+    })(btns[i]);
+  }
+}
+
+function checkQuickScroll() {
+  var grid = $('quickGrid');
+  var btn = $('scrollQuickBtn');
+  if (!grid || !btn) return;
+
+  if (grid.scrollWidth > grid.clientWidth) {
+    btn.style.display = 'flex';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+function initQuickAddUI() {
+  var grid = $('quickGrid');
+  var scrollBtn = $('scrollQuickBtn');
+  var editBtn = $('editQuickBtn');
+
+  if (scrollBtn && grid) {
+    scrollBtn.addEventListener('click', function() {
+      grid.scrollBy({ left: 200, behavior: 'smooth' });
+    });
+  }
+
+  if (editBtn) {
+    editBtn.addEventListener('click', function() {
+      var newLabel = prompt("Naya Quick Add Button ka Label likho (e.g., 'Cold Drink ₹20'):");
+      if (!newLabel) return;
+      var newAmt = prompt("Amount likho (sirf number):");
+      if (!newAmt || isNaN(newAmt)) return;
+      
+      var presets = [];
+      try { presets = JSON.parse(localStorage.getItem('cs_quick_presets')) || DEFAULT_QUICK_PRESETS; } catch(e) { presets = DEFAULT_QUICK_PRESETS; }
+      
+      presets.push({ label: newLabel, amt: Number(newAmt), cat: 'Other', desc: newLabel.split(' ')[0] });
+      localStorage.setItem('cs_quick_presets', JSON.stringify(presets));
+      renderQuickGrid();
+      toast('✅ Custom button added!');
+    });
+  }
+}
+/* ============================================================
+   SMS UI WIRING
+   ============================================================ */
+var SMS_CAT_MAP = {
+  // SMS parser categories  →  form select categories
+  Food:          'Food',
+  Transport:     'Transportation',
+  Books:         'Education',
+  Stationery:    'Education',
+  Hostel:        'Housing',
+  Tuition:       'Education',
+  Entertainment: 'Entertainment',
+  Medical:       'Health',
+  Other:         'Other'
+};
+
+function initSmsUI() {
+  var parseBtn = $('parseSmsBtn');
+  if (parseBtn) {
+    parseBtn.addEventListener('click', function () {
+      var smsEl = $('smsInput');
+      var sms = (smsEl && smsEl.value || '').trim();
+      if (!sms) return;
+
+      var parsed = parseSmsText(sms);
+      if (!parsed) {
+        alert('❌ Ye debit SMS nahi lag rahi. Doosri try karo.');
+        return;
+      }
+
+      // Map SMS category → form category
+      var mappedCat = SMS_CAT_MAP[parsed.category] || 'Other';
+
+      // Fill form
+      if ($('amount'))      $('amount').value      = parsed.amount;
+      if ($('category'))    $('category').value    = mappedCat;
+      if ($('date'))        $('date').value        = parsed.date;
+      if ($('payment'))     $('payment').value     = 'UPI';
+      if ($('description')) $('description').value = parsed.merchant;
+      if (smsEl)            smsEl.value            = '';
+
+      if (editingId) exitEditMode();
+      toast('✅ Auto-filled: ' + fmt(parsed.amount) + ' · ' + parsed.merchant + ' (' + mappedCat + ')');
+
+      // Switch to transactions page to show filled form
+      goToPage('transactions');
+    });
+  }
+
+  // Android-only features
+  if (isAndroid()) {
+    if ($('smsActions')) $('smsActions').hidden = false;
+    if ($('scanSmsBtn')) {
+      $('scanSmsBtn').addEventListener('click', scanHistoricalSms);
+    }
+    // Catch SMS that arrived while app was closed
+    syncPendingSms();
+  }
+} 
+
+/* ============================================================
+   INIT
+   ============================================================ */
+function init() {
+  loadData();
+  applySettings();
+  renderAccount();
+    initQuickAddUI();
+  renderCategoryLimits();
+    initCsvImport();
+  renderCategoryGrid();
+  renderQuickGrid();       // ✅ NEW — populate quick buttons
+  bindNavigation();
+  // bindQuickAdd();       // ❌ REMOVE — renderQuickGrid calls it internally
+  bindAccountForm();
+  bindSettings();
+
+  initSmsUI();             // ✅ NEW — wire SMS paste + scan buttons
+
+  // ... rest of init stays the same ...
+
+  if ($('date')) $('date').value = todayISO();
+
+  if ($('expenseForm')) $('expenseForm').addEventListener('submit', handleSubmit);
+  if ($('cancelEditBtn')) $('cancelEditBtn').addEventListener('click', exitEditMode);
+
+  if ($('tableBody')) {
+    $('tableBody').addEventListener('click', function (e) {
+      var t = e.target;
+      if (t.hasAttribute('data-edit')) startEdit(t.getAttribute('data-edit'));
+      if (t.hasAttribute('data-del'))  deleteExpense(t.getAttribute('data-del'));
+    });
+  }
+
+  if ($('filterCategory')) $('filterCategory').addEventListener('change', renderTable);
+  if ($('filterMonth'))    $('filterMonth').addEventListener('change', renderTable);
+  if ($('searchInput'))    $('searchInput').addEventListener('input', renderTable);
+
+  if ($('saveBudgetBtn')) {
+    $('saveBudgetBtn').addEventListener('click', function () {
+      var val = Number($('budgetInput').value);
+      monthlyBudget = val > 0 ? val : 0;
+      saveBudget();
+      renderStats();
+      alert('Budget saved ✓');
+    });
+  }
+
+  if ($('exportBtn')) $('exportBtn').addEventListener('click', exportCSV);
+  if ($('clearBtn')) {
+    $('clearBtn').addEventListener('click', function () {
+      if (!confirm('Delete ALL records? This cannot be undone.')) return;
+      expenses = [];
+      saveData();
+      exitEditMode();
+      renderAll();
+    });
+  }
+
+  renderAll();
+
+  // Restore last visited page (default: information)
+  var lastPage = 'information';
+  try { lastPage = localStorage.getItem(PAGE_KEY) || 'information'; } catch (e) {}
+  goToPage(lastPage);
+
+  // Dev helper
+  cleanupServiceWorkers();
+
+  console.log('✅ CampusSpend loaded successfully');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+/* ============================================================
+   SMS PARSING (works in web + Android WebView)
+   ============================================================ */
+function parseSmsText(sms) {
+  const lower = sms.toLowerCase();
+  const debitKw  = ['debited','debit','paid','spent','sent','withdrawn','withdrew','purchase'];
+  const creditKw = ['credited','credit','received','refund','cashback','reversal'];
+
+  const isDebit = debitKw.some(k => lower.includes(k))
+               && !creditKw.some(k => lower.includes(k));
+  if (!isDebit) return null;
+
+  // ---- Amount ----
+  const amountPatterns = [
+    /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i,
+    /([\d,]+(?:\.\d{1,2})?)\s*(?:Rs\.?|INR)/i
+  ];
+  let amount = null;
+  for (const p of amountPatterns) {
+    const m = sms.match(p);
+    if (m) { amount = parseFloat(m[1].replace(/,/g, '')); break; }
+  }
+  if (!amount || amount <= 0 || amount > 1000000) return null;
+
+  // ---- Merchant ----
+  const merchantPatterns = [
+    /(?:to|towards|at|paid to)\s+([A-Za-z0-9\s.\-&@_]+?)(?:\s+on|\s+via|\s+ref|\s+using|[.,]|$)/i,
+    /VPA\s+([a-zA-Z0-9.\-@_]+)/i,
+    /Info[:\s]+([A-Za-z0-9\s.\-&@_]+?)(?:\s+Ref|\s+on|$)/i
+  ];
+  let merchant = 'Unknown Merchant';
+  for (const p of merchantPatterns) {
+    const m = sms.match(p);
+    if (m && m[1] && m[1].trim().length > 1) {
+      merchant = m[1].trim().replace(/\.$/, '').slice(0, 60);
+      break;
+    }
+  }
+
+  const date     = extractDateFromSms(sms);
+  const category = guessCategory(merchant);
+
+  return { amount, merchant, category, date, raw: sms };
+}
+
+function extractDateFromSms(sms) {
+  const patterns = [
+    /(\d{2})-(\d{2})-(\d{2,4})/,
+    /(\d{2})\/(\d{2})\/(\d{2,4})/,
+    /(\d{2})-([A-Za-z]{3})-(\d{2,4})/,
+    /(\d{2})([A-Za-z]{3})(\d{2,4})/
+  ];
+  const months = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                  jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+
+  for (const p of patterns) {
+    const m = sms.match(p);
+    if (!m) continue;
+    const d = m[1].padStart(2, '0');
+    let mo = m[2], y = m[3];
+    if (isNaN(parseInt(mo))) mo = months[mo.toLowerCase().slice(0, 3)] || '01';
+    else mo = mo.padStart(2, '0');
+    if (y.length === 2) y = '20' + y;
+    return `${y}-${mo}-${d}`;
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
+function guessCategory(merchant) {
+  const rules = {
+    Food: ['swiggy','zomato','canteen','restaurant','cafe','dominos','pizza','kfc',
+           'mcdonald','chai','tea','coffee','mess','dhaba','bakery','haldiram'],
+    Transport: ['uber','ola','rapido','auto','cab','metro','bus','train','irctc',
+                'petrol','fuel','indian oil','bharat petroleum','hp pay','toll'],
+    Books: ['amazon','flipkart','book','library','kindle','crossword','scholar'],
+    Stationery: ['xerox','print','stationery','pen','notebook','copier','repro'],
+    Hostel: ['hostel','rent','pg ','accommodation','mess fee'],
+    Tuition: ['tuition','college','university','fee','exam','admission','semester'],
+    Entertainment: ['netflix','prime','hotstar','spotify','movie','pvr','inox',
+                    'game','steam','bookmyshow'],
+    Medical: ['pharmacy','medical','hospital','clinic','apollo','medplus','doctor','1mg']
+  };
+  const m = merchant.toLowerCase();
+  for (const [cat, keys] of Object.entries(rules)) {
+    if (keys.some(k => m.includes(k))) return cat;
+  }
   return 'Other';
 }
 
-function parseDateValue(v){
-  const raw = String(v||'').trim();
-  if (!raw) return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  let m = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-  if (m){
-    let y = Number(m[3]);
-    if (y < 100) y += 2000;
-    return `${y}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
-  }
-  const d = new Date(raw);
-  return isNaN(d) ? '' : d.toISOString().slice(0,10);
-}
-
-async function importCsv(file){
-  const text = await file.text();
-  const rows = parseCsv(text);
-  if (rows.length < 2) throw new Error('CSV is empty');
-
-  const headers = rows[0];
-  const dateIdx   = findHeader(headers, ['date','transaction date','time']);
-  const amountIdx = findHeader(headers, ['amount','debit','withdrawal','paid']);
-  const descIdx   = findHeader(headers, ['description','merchant','details','narration','name']);
-  const catIdx    = findHeader(headers, ['category','type']);
-  const payIdx    = findHeader(headers, ['payment method','payment','mode','method']);
-  if (amountIdx < 0) throw new Error('Could not find an Amount column');
-
-  let imported = 0, duplicates = 0;
-  for (let i = 1; i < rows.length; i++){
-    const r = rows[i];
-    if (!r.length) continue;
-    const date = parseDateValue(dateIdx >= 0 ? r[dateIdx] : '') || isoToday();
-    const amountText = String(r[amountIdx]||'').replace(/[^0-9.\-]/g,'');
-    const amount = Math.abs(Number(amountText));
-    if (!amount) continue;
-
-    const description = descIdx >= 0 ? String(r[descIdx]||'').trim() : 'Imported transaction';
-    const category    = catIdx >= 0 && String(r[catIdx]||'').trim()
-      ? String(r[catIdx]).trim() : guessCategory(description);
-    const payment = payIdx >= 0 && String(r[payIdx]||'').trim()
-      ? String(r[payIdx]).trim() : 'UPI';
-
-    const duplicate = state.expenses.some(e =>
-      e.date === date &&
-      Math.abs(Number(e.amount) - amount) < 0.001 &&
-      String(e.description).toLowerCase() === description.toLowerCase()
-    );
-    if (duplicate){ duplicates++; continue; }
-
-    state.expenses.push({
-      id: uid(),
-      amount,
-      category: CATEGORIES.includes(category) ? category : 'Other',
-      date,
-      paymentMethod: ['Cash','UPI','Card','Net Banking'].includes(payment) ? payment : 'UPI',
-      description: description || 'Imported transaction',
-      source: 'csv'
-    });
-    imported++;
-  }
-  persist();
-  renderAll();
-  return { imported, duplicates };
-}
-
 /* ============================================================
-   VIEW CONTROL
+   ANDROID BRIDGE INTEGRATION
    ============================================================ */
-function showApp(){
-  window.scrollTo(0,0);
-  $('#landingView').classList.add('hidden');
-  $('#appView').classList.remove('hidden');
-  renderAll();
-}
-function showLanding(){
-  window.scrollTo(0,0);
-  $('#appView').classList.add('hidden');
-  $('#landingView').classList.remove('hidden');
+function isAndroid() {
+  return typeof window.AndroidBridge !== 'undefined';
 }
 
-/* ============================================================
-   EVENTS
-   ============================================================ */
-$$('[data-open-app]').forEach(b => b.addEventListener('click', showApp));
-$('#backHomeBtn').addEventListener('click', showLanding);
-$('#mobileBackBtn').addEventListener('click', () => {
-  if (confirm('Landing page par jaana hai? Data safe rahega.')) {
-    showLanding();
-  }
-});
-
-/* Navigation (sidebar + mobile bottom nav — synced) */
-$$('[data-go]').forEach(btn => btn.addEventListener('click', () => {
-  const id = btn.dataset.go;
-  $$('[data-go]').forEach(x => x.classList.toggle('active', x.dataset.go === id));
-  const el = $('#' + id);
-  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
-}));
-
-/* Modals */
-$$('.modal-close').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
-$$('.modal').forEach(m => m.addEventListener('click', e => {
-  if (e.target === m) m.classList.remove('open');
-}));
-
-/* Add expense */
-$('#addExpenseBtn').addEventListener('click', () => {
-  state.editId = null;
-  $('#expenseModalTitle').textContent = 'Add Expense';
-  $('#expenseForm').reset();
-  $('#fDate').value = isoToday();
-  $('#fCategory').value = 'Food';
-  openModal('expenseModal');
-});
-$('#expenseForm').addEventListener('submit', e => {
-  e.preventDefault();
-  const data = {
-    amount: $('#fAmount').value,
-    category: $('#fCategory').value,
-    date: $('#fDate').value,
-    paymentMethod: $('#fPayment').value,
-    description: $('#fDescription').value.trim()
-  };
-  if (state.editId) updateExpense(state.editId, data);
-  else              addExpense(data);
-  state.editId = null;
-  closeModal('expenseModal');
-  toast('Expense saved');
-});
-
-/* Budget */
-$('#setBudgetBtn').addEventListener('click', () => openModal('budgetModal'));
-$('#saveBudgetBtn').addEventListener('click', () => {
-  state.budget = Math.max(0, Number($('#budgetInput').value) || 0);
-  persist();
-  closeModal('budgetModal');
-  renderAll();
-  toast('Budget updated');
-});
-
-/* Recurring */
-$('#addRecurringBtn').addEventListener('click', () => {
-  $('#recurringForm').reset();
-  $('#rDate').value = isoToday();
-  $('#rCategory').value = 'Hostel';
-  openModal('recurringModal');
-});
-$('#recurringForm').addEventListener('submit', e => {
-  e.preventDefault();
-  state.recurring.push({
-    id: uid(),
-    amount: Number($('#rAmount').value),
-    category: $('#rCategory').value,
-    description: $('#rDescription').value.trim(),
-    frequency: $('#rFrequency').value,
-    nextDate: $('#rDate').value,
-    paymentMethod: $('#rPayment').value,
-    active: true
-  });
-  persist();
-  processRecurring();
-  renderAll();
-  closeModal('recurringModal');
-  toast('Recurring expense created');
-});
-
-/* Table + recurring actions */
-$('#expenseBody').addEventListener('click', e => {
-  const edit = e.target.dataset.edit;
-  const del  = e.target.dataset.del;
-  if (edit) startEdit(edit);
-  if (del)  deleteExpense(del);
-});
-$('#recurringList').addEventListener('click', e => {
-  const del = e.target.dataset.delRec;
-  const tog = e.target.dataset.toggleRec;
-  if (del){
-    state.recurring = state.recurring.filter(r => r.id !== del);
-    persist();
-    renderRecurring();
-    toast('Recurring rule deleted');
-  }
-  if (tog){
-    const r = state.recurring.find(x => x.id === tog);
-    if (r){ r.active = e.target.checked; persist(); toast(r.active ? 'Recurring enabled' : 'Recurring paused'); }
-  }
-});
-
-/* Quick add */
-$$('[data-quick]').forEach(b => b.addEventListener('click', () => {
-  const [description, category, amount] = b.dataset.quick.split('|');
-  addExpense({ description, category, amount, date: isoToday(), paymentMethod: 'UPI' });
-  toast(description + ' added');
-}));
-
-/* Filters */
-$('#searchInput').addEventListener('input', e => { state.filters.q = e.target.value; renderTable(); });
-$('#categoryFilter').addEventListener('change', e => { state.filters.category = e.target.value; renderTable(); });
-$('#monthFilter').addEventListener('change', e => { state.filters.month = e.target.value; renderTable(); });
-$('#paymentFilter').addEventListener('change', e => { state.filters.payment = e.target.value; renderTable(); });
-$('#clearFiltersBtn').addEventListener('click', () => {
-  state.filters = { q:'', category:'all', month:'all', payment:'all' };
-  renderFilters();
-  renderTable();
-});
-
-/* Import / export */
-$('#importBtn').addEventListener('click', () => openModal('importModal'));
-$('#exportBtn').addEventListener('click', exportCsv);
-$('#processCsvBtn').addEventListener('click', async () => {
-  const file = $('#csvFile').files[0];
-  if (!file) return toast('Choose a CSV file first');
+function syncPendingSms() {
+  if (!isAndroid()) return;
   try {
-    const r = await importCsv(file);
-    closeModal('importModal');
-    $('#csvFile').value = '';
-    toast(`Imported ${r.imported} record(s), skipped ${r.duplicates} duplicate(s)`);
-  } catch (err){
-    toast(err.message || 'Import failed');
+    const json  = window.AndroidBridge.getPendingSms();
+    const items = JSON.parse(json || '[]');
+    if (!items.length) return;
+
+    let added = 0;
+    for (const item of items) {
+      if (!item.amount || item.amount <= 0) continue;
+      const dup = expenses.some(e =>
+        Math.abs(e.amount - item.amount) < 0.01 &&
+        e.date === item.date &&
+        e.description === item.merchant
+      );
+      if (dup) continue;
+
+      expenses.push({
+        id: uid(),
+        amount: item.amount,
+        category: item.category || 'Other',
+        date: item.date,
+        paymentMethod: 'UPI',
+        description: item.merchant || 'SMS import'
+      });
+      added++;
+    }
+    if (added > 0) {
+      saveData();
+      renderAll();
+      toast(`✅ ${added} expense(s) auto-added from SMS`);
+    }
+  } catch (err) {
+    console.error('SMS sync error:', err);
   }
-});
-$('#demoDataBtn').addEventListener('click', loadDemo);
+}
 
-/* Extra */
-$('#resetDemoChart').addEventListener('click', () => {
-  drawTrend();
-  drawDonut();
-  toast('Charts refreshed');
-});
-
-/* Keyboard */
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') $$('.modal.open').forEach(m => m.classList.remove('open'));
-});
-
-/* Resize */
-window.addEventListener('resize', () => {
-  if (!$('#appView').classList.contains('hidden')){
-    drawTrend();
-    drawDonut();
+function scanHistoricalSms() {
+  if (!isAndroid()) {
+    toast('SMS scanning works only in the Android app.');
+    return;
   }
-});
+  if (!confirm('Scan recent SMS for bank transactions? (up to 500 most recent)')) return;
+
+  try {
+    const json  = window.AndroidBridge.scanHistoricalSms();
+    const items = JSON.parse(json || '[]');
+    if (!items.length) { toast('No bank transactions found.'); return; }
+
+    let added = 0;
+    for (const item of items) {
+      const dup = expenses.some(e =>
+        Math.abs(e.amount - item.amount) < 0.01 &&
+        e.date === item.date &&
+        e.description === item.merchant
+      );
+      if (dup) continue;
+      expenses.push({
+        id: uid(),
+        amount: item.amount,
+        category: item.category || 'Other',
+        date: item.date,
+        paymentMethod: 'UPI',
+        description: item.merchant || 'SMS import'
+      });
+      added++;
+    }
+    saveData();
+    renderAll();
+    toast(`✅ ${added} expense(s) imported from SMS history`);
+  } catch (err) {
+    console.error('Historical scan error:', err);
+  }
+}
+
+// Android calls this in onResume()
+window.onAndroidResume = function () { syncPendingSms(); };
+
+/* Toast */
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 3200);
+}
 
 /* ============================================================
-   MOBILE: FAB + PWA + Service Worker
+   CSV IMPORT LOGIC (Drop & Browse)
    ============================================================ */
-$('#mobileFab').addEventListener('click', () => {
-  state.editId = null;
-  $('#expenseModalTitle').textContent = 'Add Expense';
-  $('#expenseForm').reset();
-  $('#fDate').value = isoToday();
-  $('#fCategory').value = 'Food';
-  openModal('expenseModal');
-});
+function initCsvImport() {
+  var dropZone = document.getElementById('dropZone');
+  var fileInput = document.getElementById('csvFile');
+  if (!dropZone || !fileInput) return;
 
-if ('serviceWorker' in navigator){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  // 1. Click to browse
+  dropZone.addEventListener('click', function() {
+    fileInput.click();
+  });
+
+  // 2. File selected via Browse
+  fileInput.addEventListener('change', function(e) {
+    if (e.target.files.length > 0) {
+      processCsvFile(e.target.files[0]);
+    }
+  });
+
+  // 3. Drag and Drop functionality
+  dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = 'var(--primary)';
+    dropZone.style.background = 'var(--primary-light)';
+  });
+
+  dropZone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = '#cbd5e1';
+    dropZone.style.background = '#f8fafc';
+  });
+
+  dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.style.borderColor = '#cbd5e1';
+    dropZone.style.background = '#f8fafc';
+    if (e.dataTransfer.files.length > 0) {
+      processCsvFile(e.dataTransfer.files[0]);
+    }
   });
 }
 
-let deferredPrompt = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
+function processCsvFile(file) {
+  if (!file.name.endsWith('.csv')) {
+    alert('Bhai sirf .csv file daalo!');
+    return;
+  }
+  
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var lines = text.split('\n');
+    var addedCount = 0;
 
-  const btn = document.createElement('button');
-  btn.id = 'pwaInstallBtn';
-  btn.className = 'btn btn-success btn-sm';
-  btn.textContent = '📲 Install App';
-  btn.style.position = 'fixed';
-  btn.style.left = '16px';
-  btn.style.bottom = 'calc(84px + env(safe-area-inset-bottom))';
-  btn.style.zIndex = '82';
-  btn.style.boxShadow = '0 10px 24px rgba(18,165,148,.35)';
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      
+      var lowerLine = line.toLowerCase();
+      // Header line skip karo
+      if (i === 0 && (lowerLine.includes('date') || lowerLine.includes('amount'))) continue;
 
-  btn.addEventListener('click', async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    await deferredPrompt.userChoice;
-    deferredPrompt = null;
-    btn.remove();
-  });
+      // CSV ko comma se tod do
+      var parts = line.split(',');
+      if (parts.length >= 2) {
+        var date = parts[0].trim().replace(/"/g, '');
+        // Amount me se koi bhi symbol hata kar sirf number rakho
+        var amount = parseFloat(parts[1].trim().replace(/[^0-9.]/g, '')); 
+        var desc = parts[2] ? parts[2].trim().replace(/"/g, '') : 'Imported Record';
 
-  document.body.appendChild(btn);
-});
+        if (!isNaN(amount) && amount > 0) {
+          // Expense add karo
+          expenses.push({
+            id: uid(),
+            amount: amount,
+            category: 'Other', 
+            date: date || todayISO(),
+            paymentMethod: 'CSV Import',
+            description: desc
+          });
+          addedCount++;
+        }
+      }
+    }
 
-/* ---------- Init ---------- */
-fillCategorySelects();
-load();
-renderAll();
-
-})();
+    if (addedCount > 0) {
+      saveData();
+      renderAll();
+      toast('✅ ' + addedCount + ' records import ho gaye!');
+    } else {
+      alert('Format galat hai. CSV me (Date, Amount, Description) hone chahiye.');
+    }
+  };
+  reader.readAsText(file);
+}
